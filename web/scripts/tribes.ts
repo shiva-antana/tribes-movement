@@ -36,6 +36,73 @@ export function readVol(path: string): VolEntry[] {
   return out;
 }
 
+// ---------------------------------------------------------------- DTS meshes → GLB (local ghost reference)
+
+/**
+ * Bake one detail level of a shape in its default pose into a static GLB: one primitive per
+ * material, Y-up, metres. `textures` maps lower-case bitmap names to PNG bytes.
+ */
+export async function dtsToGLB(s: DtsShape, textures: Map<string, Uint8Array>, detail = 0): Promise<{ glb: Uint8Array; tris: number; height: number }> {
+  const { Document, NodeIO } = await import('@gltf-transform/core');
+  // World transforms of every node from the default pose.
+  const world: { q: THREE.Quaternion; t: THREE.Vector3 }[] = [];
+  const nodeWorld = (i: number): { q: THREE.Quaternion; t: THREE.Vector3 } => {
+    if (world[i]) return world[i];
+    const d = s.transforms[s.nodes[i].defT];
+    const lq = quatToY(d.q), lt = vecToY(d.t);
+    const par = s.nodes[i].parent;
+    if (par < 0 || par === i) return (world[i] = { q: lq, t: lt });
+    const pw = nodeWorld(par);
+    return (world[i] = { q: pw.q.clone().multiply(lq), t: lt.applyQuaternion(pw.q).add(pw.t) });
+  };
+  const inDetail = new Set<number>();
+  const root = s.details[detail]?.root ?? 0;
+  const visit = (i: number) => { inDetail.add(i); s.nodes.forEach((n, j) => { if (n.parent === i && j !== i) visit(j); }); };
+  visit(root);
+
+  const byMat = new Map<number, { pos: number[]; uv: number[] }>();
+  for (const o of s.objects) {
+    if (!inDetail.has(o.node) || /^bounds/i.test(o.name)) continue;
+    const m = s.meshes[o.mesh];
+    if (!m) continue;
+    const w = nodeWorld(o.node), off = vecToY(o.offset);
+    const P = m.positions.map(v => vecToY(v as [number, number, number]).add(off).applyQuaternion(w.q).add(w.t));
+    for (const f of m.faces) {
+      if (f.v.some(v => !P[v])) continue;
+      const g = byMat.get(f.mat) ?? { pos: [], uv: [] };
+      byMat.set(f.mat, g);
+      for (const c of [0, 2, 1]) { // Darkstar winds clockwise; glTF wants counter-clockwise
+        g.pos.push(...P[f.v[c]].toArray());
+        const t = m.uvs[f.t[c]] ?? [0, 0];
+        g.uv.push(t[0], t[1]);
+      }
+    }
+  }
+  const doc = new Document();
+  const buffer = doc.createBuffer();
+  const mesh = doc.createMesh('shape');
+  let tris = 0, minY = Infinity, maxY = -Infinity;
+  for (const [mi, g] of byMat) {
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(g.pos, 3));
+    geo.computeVertexNormals();
+    for (let k = 1; k < g.pos.length; k += 3) { minY = Math.min(minY, g.pos[k]); maxY = Math.max(maxY, g.pos[k]); }
+    const name = (s.materials[mi] ?? '').toLowerCase();
+    const mat = doc.createMaterial(name || `mat${mi}`).setMetallicFactor(0).setRoughnessFactor(0.8);
+    const png = textures.get(name);
+    if (png) mat.setBaseColorTexture(doc.createTexture(name).setImage(png).setMimeType('image/png'));
+    else mat.setBaseColorFactor([0.6, 0.6, 0.62, 1]);
+    mesh.addPrimitive(doc.createPrimitive()
+      .setAttribute('POSITION', doc.createAccessor().setType('VEC3').setArray(new Float32Array(g.pos)).setBuffer(buffer))
+      .setAttribute('NORMAL', doc.createAccessor().setType('VEC3').setArray(geo.getAttribute('normal').array as Float32Array).setBuffer(buffer))
+      .setAttribute('TEXCOORD_0', doc.createAccessor().setType('VEC2').setArray(new Float32Array(g.uv)).setBuffer(buffer))
+      .setMaterial(mat));
+    tris += g.pos.length / 9;
+  }
+  doc.createScene('shape').addChild(doc.createNode('shape').setMesh(mesh));
+  return { glb: await new NodeIO().writeBinary(doc), tris, height: maxY - minY };
+}
+
 if (import.meta.url === `file://${process.argv[1]}`) {
   const [cmd, ...rest] = process.argv.slice(2);
   const { flags: F, pos } = flags(rest);
@@ -106,7 +173,13 @@ export interface DtsShape {
   transforms: { q: [number, number, number, number]; t: [number, number, number] }[];
   names: string[];
   details: { root: number; size: number }[];
+  objects: { name: string; mesh: number; node: number; offset: [number, number, number] }[];
+  meshes: CelMesh[];
+  materials: string[];
 }
+
+/** TS::CelAnimMesh v3: packed u8 vertices dequantised per frame (scale, origin), float UVs, 3-corner faces. */
+export interface CelMesh { positions: number[][]; uvs: number[][]; faces: { v: number[]; t: number[]; mat: number }[]; }
 
 /** Clean-room reader for the v8 header and animation tables (meshes/materials are skipped). */
 export function readDts(buf: Uint8Array): DtsShape {
@@ -134,15 +207,55 @@ export function readDts(buf: Uint8Array): DtsShape {
     return { q, t: [f32(), f32(), f32()] as [number, number, number] };
   });
   const names = Array.from({ length: nNames }, () => { const s = b.toString('latin1', p, p + 24); p += 24; return s.slice(0, s.indexOf('\0') >= 0 ? s.indexOf('\0') : 24); });
-  p += nObj * 28;
+  const objects = Array.from({ length: nObj }, () => {
+    const name = i16(); i16(); const mesh = i32(); const node = i16(); i16();
+    const offset = [f32(), f32(), f32()] as [number, number, number]; i16(); i16();
+    return { name: names[name] ?? `obj${name}`, mesh, node, offset };
+  });
   const details = Array.from({ length: nDet }, () => ({ root: i32(), size: f32() }));
   void nTrans; void nTrig;
+  // Meshes and the material list follow as nested persistent objects; walk them block by block.
+  const meshes: CelMesh[] = [], materials: string[] = [];
+  let q = b.indexOf('PERS', p);
+  while (q >= 0 && q + 10 < b.length) {
+    const size = b.readInt32LE(q + 4), nl = b.readInt16LE(q + 8), kind = b.toString('latin1', q + 10, q + 10 + nl);
+    const d = q + 10 + ((nl + 1) & ~1) + 4;
+    if (kind === 'TS::CelAnimMesh') meshes.push(readCelMesh(b, d));
+    else if (kind === 'TS::MaterialList') {
+      const nDetail = b.readInt32LE(d), nMat = b.readInt32LE(d + 4);
+      for (let k = 0; k < nMat * Math.max(1, nDetail) && d + 8 + k * 64 + 48 <= q + 8 + size; k++) {
+        const raw = b.toString('latin1', d + 8 + k * 64 + 16, d + 8 + k * 64 + 48);
+        materials.push(raw.slice(0, raw.indexOf('\0') >= 0 ? raw.indexOf('\0') : 32));
+      }
+    }
+    q += 8 + size;
+  }
   return {
     version,
     nodes: nodesRaw.map(n => ({ ...n, name: names[n.name] ?? `node${n.name}` })),
     sequences: seqRaw.map(s => ({ ...s, name: names[s.name] ?? `seq${s.name}` })),
-    subs, keys, transforms, names, details,
+    subs, keys, transforms, names, details, objects, meshes, materials,
   };
+}
+
+function readCelMesh(b: Buffer, p: number): CelMesh {
+  const [nVerts, vpf, nTex, nFaces, nFrames] = Array.from({ length: 6 }, (_, k) => b.readInt32LE(p + k * 4));
+  p += 28; // six counts + radius
+  const packed = b.subarray(p, p + nVerts * 4); p += nVerts * 4;
+  const uvs = Array.from({ length: nTex }, (_, k) => [b.readFloatLE(p + k * 8), b.readFloatLE(p + k * 8 + 4)]); p += nTex * 8;
+  const faces = Array.from({ length: nFaces }, (_, k) => {
+    const o = p + k * 28, r = (j: number) => b.readInt32LE(o + j * 4);
+    return { v: [r(0), r(2), r(4)], t: [r(1), r(3), r(5)], mat: r(6) };
+  });
+  p += nFaces * 28;
+  // First frame only: these are rigid per-node parts; multi-frame meshes are cel animations (flags, pulses).
+  const f = nFrames > 0 ? p : -1;
+  const first = f >= 0 ? b.readInt32LE(f) : 0;
+  const sc = f >= 0 ? [1, 2, 3].map(k => b.readFloatLE(f + k * 4)) : [1, 1, 1];
+  const or = f >= 0 ? [4, 5, 6].map(k => b.readFloatLE(f + k * 4)) : [0, 0, 0];
+  const positions: number[][] = [];
+  for (let k = first; k < Math.min(nVerts, first + vpf); k++) positions.push([0, 1, 2].map(a => or[a] + packed[k * 4 + a] * sc[a]));
+  return { positions, uvs, faces };
 }
 
 // ---------------------------------------------------------------- DTS → our SkeletonDef + MotionDef (reference only)
@@ -221,6 +334,36 @@ export function dtsToReference(s: DtsShape, id: string, detail = 0): { skeleton:
 if (import.meta.url === `file://${process.argv[1]}`) {
   const [cmd, ...rest] = process.argv.slice(2);
   const { flags: F } = flags(rest);
+  if (cmd === 'meshes') {
+    // Every shape in Entities.vol → reference/meshes/<name>.glb, textured with the chosen world palette.
+    const ents = readVol(join(TRIBES_RAW, 'shapes', 'Entities.vol'));
+    const world = F.world ?? 'lush';
+    const pals = readPalettes(readVol(join(TRIBES_RAW, 'world', `${world}World.vol`)).find(e => e.name === `${world}.day.ppl`)!.data);
+    const { encodePNG } = await import('./lib');
+    const texCache = new Map<string, Uint8Array>();
+    const bmps = new Map(ents.filter(e => /\.bmp$/i.test(e.name)).map(e => [e.name.toLowerCase(), e]));
+    const dir = join(WEB, 'reference', 'meshes');
+    mkdirSync(dir, { recursive: true });
+    const filter = new RegExp(F.filter ?? '.', 'i');
+    const index: { id: string; tris: number; height: number }[] = [];
+    for (const e of ents.filter(x => /\.dts$/i.test(x.name) && filter.test(x.name))) {
+      try {
+        const shape = readDts(e.data);
+        for (const m of shape.materials) {
+          const k = m.toLowerCase();
+          if (texCache.has(k) || !bmps.has(k)) continue;
+          try { const img = decodePBMP(bmps.get(k)!.data, pals); texCache.set(k, encodePNG(img.rgba, img.w, img.h)); } catch { /* unsupported bitmap */ }
+        }
+        const { glb, tris, height } = await dtsToGLB(shape, texCache);
+        if (!tris) continue;
+        const id = basename(e.name).replace(/\.dts$/i, '').toLowerCase();
+        writeFileSync(join(dir, `${id}.glb`), glb);
+        index.push({ id, tris, height: +height.toFixed(2) });
+      } catch (err) { if (F.verbose) console.warn(`${e.name}: ${(err as Error).message}`); }
+    }
+    writeFileSync(join(dir, 'index.json'), JSON.stringify(index, null, 1));
+    console.log(`${index.length} shapes → reference/meshes/ (local only, never commit or ship)`);
+  }
   if (cmd === 'reference') {
     // Build the local reference library: armor skeletons + animations, and decoded textures.
     const ents = readVol(join(TRIBES_RAW, 'shapes', 'Entities.vol'));

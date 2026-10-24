@@ -45,6 +45,9 @@ floor.receiveShadow = true;
 scene.add(floor);
 // Reference models / images (drop files on the view, or use the panel / window.workbench.loadReference).
 const refView = new ReferenceView(scene, renderer, () => built?.mesh ?? null);
+// Original Tribes shapes exported locally by `npm run tribes -- meshes` (dev server only; absent elsewhere).
+let tribesShapes: { id: string; tris: number; height: number }[] = [];
+fetch('/local-reference/meshes/index.json').then(r => r.ok ? r.json() : []).then(j => { tribesShapes = j; renderPanel(); }).catch(() => {});
 // Treadmill grid: scrolls at the motion's authored speed so planted feet visibly stay planted.
 const grid = new THREE.GridHelper(8, 32, 0x4b5a6a, 0x34404c);
 grid.position.y = 0.002;
@@ -255,6 +258,7 @@ foot slide ${Object.values(report.footSlide).map(s => s.mean).join(' / ')} m/s �
     <div><input id="rfile" type="file" accept=".glb,.gltf,.vrm,.obj,.fbx,.png,.jpg,.jpeg,.webp" style="width:100%">
       <label>image shows <select id="rview"><option value="front">front</option><option value="side">side</option></select>
       fit <select id="rfit"><option value="body" ${refView.fit === 'body' ? 'selected' : ''}>body</option><option value="head" ${refView.fit === 'head' ? 'selected' : ''}>head</option></select></label></div>
+    ${tribesShapes.length ? `<label>Tribes shape (local) <select id="rtribes"><option value="">—</option>${tribesShapes.map(t => `<option value="${t.id}">${t.id} · ${t.tris} tris · ${t.height} m</option>`).join('')}</select></label>` : ''}
     <div><button id="rside" class="${refView.mode === 'side' ? 'on' : 'ghost'}">Side by side</button><button id="rover" class="${refView.mode === 'overlay' ? 'on' : 'ghost'}">Overlay</button><button id="rhide" class="${refView.mode === 'hidden' ? 'on' : 'ghost'}">Hide</button><button id="rturn" class="ghost">Turn 180°</button></div>
     <label>opacity <input id="ropa" type="range" min="0.1" max="1" step="0.05" value="${refView.opacity}"></label>
     <div><button id="rscore" class="ghost">Silhouette score</button><button id="rclear" class="ghost">Clear</button></div>
@@ -298,6 +302,7 @@ foot slide ${Object.values(report.footSlide).map(s => s.mean).join(' / ')} m/s �
   $('rover').onclick = () => { refView.mode = 'overlay'; refView.layout(); renderPanel(); };
   $('rhide').onclick = () => { refView.mode = 'hidden'; refView.layout(); renderPanel(); };
   $('rturn').onclick = () => refView.rotateModel(180);
+  if ($('rtribes')) $('rtribes').onchange = async () => { const id = $('rtribes').value; if (id) { await refView.load(`/local-reference/meshes/${id}.glb`); renderPanel(); } };
   $('ropa').oninput = () => { refView.opacity = +$('ropa').value; refView.layout(); };
   $('rclear').onclick = () => { refView.clear(); renderPanel(); };
   $('hfit').onclick = () => { if (fitRunning) fitStop = true; else void runHeadFit(); };
