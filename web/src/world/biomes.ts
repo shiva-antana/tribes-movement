@@ -23,6 +23,8 @@ export interface Biome {
   waterColor: number;
   particles: 'snow' | 'dust' | 'spray';
   basesUnderwater: boolean;
+  /** CC0 texture roles for the terrain layers (see content/cc0/textures.json). */
+  layers: { low: string; mid: string; high: string; rock: string; shore: string };
   height(s: Simplex2, u: number, v: number): number; // u,v in [0,1]
 }
 
@@ -41,6 +43,7 @@ export const BIOMES: Record<BiomeId, Biome> = {
     sunColor: 0xfff2e0, sunDir: [0.35, 0.32, 0.25], ambient: 0.55,
     palette: { low: 0xe6eef4, mid: 0xc9d5df, high: 0xf8fbff, rock: 0x5a6068, shore: 0x9fb4c4, scorch: 0x1a1a1e },
     waterColor: 0xa9cfe6, particles: 'snow', basesUnderwater: false,
+    layers: { low: 'snow', mid: 'snow', high: 'snow', rock: 'rock', shore: 'snow' },
     height(s, u, v) {
       const plateau = s.fbm(u * 2.2, v * 2.2, 5) * 0.5 + 0.5;
       const ridges = s.ridged(u * 3.5 + 7, v * 3.5 - 3, 6);
@@ -63,6 +66,7 @@ export const BIOMES: Record<BiomeId, Biome> = {
     sunColor: 0xfff0d0, sunDir: [-0.4, 0.55, 0.3], ambient: 0.5,
     palette: { low: 0x6f8f4e, mid: 0x587a3d, high: 0x8c8a7a, rock: 0x625b52, shore: 0xd9c99a, scorch: 0x1d1a16 },
     waterColor: 0x1f6f8b, particles: 'spray', basesUnderwater: true,
+    layers: { low: 'grass', mid: 'grass', high: 'rock', rock: 'cliff', shore: 'sand' },
     height(s, u, v) {
       const isl = s.fbm(u * 3.2, v * 3.2, 5) * 0.5 + 0.5;
       // A "spine" of islands along the axis between the bases, with straits.
@@ -85,6 +89,7 @@ export const BIOMES: Record<BiomeId, Biome> = {
     sunColor: 0xffe2b8, sunDir: [0.5, 0.45, -0.3], ambient: 0.5,
     palette: { low: 0xb5734a, mid: 0xa0613d, high: 0xd2a070, rock: 0x6e3f2a, shore: 0xc8a272, scorch: 0x221510 },
     waterColor: 0x3d6f6a, particles: 'dust', basesUnderwater: false,
+    layers: { low: 'redground', mid: 'redsoil', high: 'redsoil', rock: 'cliff', shore: 'sand' },
     height(s, u, v) {
       const base = s.fbm(u * 2.5, v * 2.5, 6) * 0.5 + 0.5;
       // Terraced mesas: quantize then soften.

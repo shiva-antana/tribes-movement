@@ -9,6 +9,7 @@
     "validate": "npm --prefix web run validate",
     "playtest": "npm --prefix web run playtest --",
     "check": "npm --prefix web run check",
-    "assets": "npm --prefix web run assets --"
+    "assets": "npm --prefix web run assets --",
+    "fetch-cc0": "npm --prefix web run fetch-cc0 --"
   }
 }

@@ -12,7 +12,8 @@
     "check": "tsc --noEmit && tsx scripts/validate.ts && npm run -s assets:check && tsx scripts/playtest.ts all --minutes 8 --seeds 1,2",
     "assets": "tsx scripts/assets.ts",
     "assets:check": "tsx scripts/assets.ts skeleton validate && tsx scripts/assets.ts motion analyze all && tsx scripts/assets.ts character build all",
-    "tribes": "tsx scripts/tribes.ts"
+    "tribes": "tsx scripts/tribes.ts",
+    "fetch-cc0": "tsx scripts/fetch-cc0.ts"
   },
   "dependencies": {
     "three": "0.180.0"

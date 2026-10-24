@@ -2,4 +2,5 @@ node_modules
 dist
 public/generated
 public/reference
+public/cc0
 reference

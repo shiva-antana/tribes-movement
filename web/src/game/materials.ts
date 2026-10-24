@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { NOISE_GLSL, fogGLSL } from '../world/terrainShader';
+import { cc0, CC0_READY } from '../world/cc0';
 
 type Shared = Record<string, THREE.IUniform>;
 let shared: Shared | null = null;
@@ -26,6 +27,15 @@ export function makePlateMaterial(team: number, baseColor: number, teamColor: nu
       uEmissive: { value: opts.emissive ?? 0 },
       uAlpha: { value: 1 },
       uSeed: { value: Math.random() * 100 },
+      // CC0 metal plate (albedo / normal / AO-rough-metal), one texture tile per 2.5 m panel.
+      uTex: CC0_READY,
+      // Walls: seamed painted panels; floors/decks/roofs: tread plate. Both desaturated to the structure's tint.
+      tPlate: { value: cc0('metal_paint')?.diff ?? null },
+      nPlate: { value: cc0('metal_paint')?.nor ?? null },
+      aPlate: { value: cc0('metal_paint')?.arm ?? null },
+      tFloor: { value: cc0('metal')?.diff ?? null },
+      nFloor: { value: cc0('metal')?.nor ?? null },
+      aFloor: { value: cc0('metal')?.arm ?? null },
     },
     vertexShader: /* glsl */ `
       varying vec3 vPos; varying vec3 vNor; varying vec3 vObj;
@@ -38,7 +48,8 @@ export function makePlateMaterial(team: number, baseColor: number, teamColor: nu
     fragmentShader: /* glsl */ `
       ${NOISE_GLSL}
       ${fogGLSL()}
-      uniform vec3 uBase, uTeam, uSunDir, uSunColor; uniform float uDamage, uHealing, uPowered, uEmissive, uAmbient, uTime, uAlpha, uSeed;
+      uniform vec3 uBase, uTeam, uSunDir, uSunColor; uniform float uDamage, uHealing, uPowered, uEmissive, uAmbient, uTime, uAlpha, uSeed, uTex;
+      uniform sampler2D tPlate, nPlate, aPlate, tFloor, nFloor, aFloor;
       varying vec3 vPos; varying vec3 vNor; varying vec3 vObj;
       void main(){
         vec3 n = normalize(vNor);
@@ -49,7 +60,24 @@ export function makePlateMaterial(team: number, baseColor: number, teamColor: nu
         float seam = smoothstep(0.03, 0.0, min(min(g.x, 1.0 - g.x), min(g.y, 1.0 - g.y)));
         float panelId = hash12(floor(uv / 2.5) + uSeed);
         vec3 col = uBase * (0.85 + 0.2 * panelId);
-        col *= 0.9 + 0.2 * fbm(uv * 0.7);
+        float rough = 0.6, metal = 0.3;
+        if (uTex > 0.5) {
+          vec2 tuv = uv / 2.5 + floor(panelId * 4.0) * 0.25;   // offset per panel so tiles don't repeat in lockstep
+          bool floorFace = an.y > 0.7;
+          vec3 tc = floorFace ? texture2D(tFloor, tuv * 2.0).rgb : texture2D(tPlate, tuv).rgb;
+          float lum = dot(tc, vec3(0.299, 0.587, 0.114));
+          // Keep the photo's detail (luminance) but take colour from the structure's tint.
+          col = uBase * (lum / (floorFace ? 0.09 : 0.06)) * (0.9 + 0.15 * panelId);
+          vec3 arm = floorFace ? texture2D(aFloor, tuv * 2.0).rgb : texture2D(aPlate, tuv).rgb;
+          col *= mix(1.0, arm.r, 0.7);
+          rough = arm.g; metal = arm.b;
+          vec3 nm = (floorFace ? texture2D(nFloor, tuv * 2.0).xyz : texture2D(nPlate, tuv).xyz) * 2.0 - 1.0;
+          vec3 T = an.y > 0.7 ? vec3(1.0, 0.0, 0.0) : (an.x > an.z ? vec3(0.0, 0.0, 1.0) : vec3(1.0, 0.0, 0.0));
+          vec3 B = an.y > 0.7 ? vec3(0.0, 0.0, 1.0) : vec3(0.0, 1.0, 0.0);
+          n = normalize(n + (T * nm.x + B * nm.y) * 0.8);
+        } else {
+          col *= 0.9 + 0.2 * fbm(uv * 0.7);
+        }
         col = mix(col, col * 0.45, seam);
         // Team trim stripe.
         float stripe = smoothstep(0.42, 0.46, abs(fract(vObj.y * 0.25 + 0.1) - 0.5));
@@ -68,8 +96,14 @@ export function makePlateMaterial(team: number, baseColor: number, teamColor: nu
 
         float diff = max(dot(n, uSunDir), 0.0);
         vec3 lit = col * (uSunColor * diff + uAmbient * mix(vec3(0.5), vec3(0.8, 0.85, 1.0), n.y * 0.5 + 0.5));
+        // Blinn-Phong sheen from the roughness/metal maps so plating reads as metal.
+        vec3 vdir = normalize(uCamPos - vPos);
+        float spec = pow(max(dot(n, normalize(uSunDir + vdir)), 0.0), mix(64.0, 6.0, rough)) * mix(0.08, 0.6, metal) * (1.0 - rough * 0.6);
+        lit += uSunColor * spec * diff;
         lit += heal + uTeam * uEmissive * uPowered;
-        gl_FragColor = vec4(applyFog(lit, vPos), uAlpha);
+        gl_FragColor = vec4(applyFog(lit, vPos), uAlpha); // output in the renderer's colour space (sRGB)
+#include <colorspace_fragment>
+
       }`,
   });
   return mat;
@@ -91,7 +125,9 @@ export function makeLitMaterial(color: number, emissive = 0) {
         vec3 n = normalize(vNor);
         float diff = max(dot(n, uSunDir), 0.0);
         vec3 lit = uColor * (uSunColor * diff + uAmbient * 0.8 + uEm);
-        gl_FragColor = vec4(applyFog(lit, vPos), 1.0);
+        gl_FragColor = vec4(applyFog(lit, vPos), 1.0); // output in the renderer's colour space (sRGB)
+#include <colorspace_fragment>
+
       }`,
   });
 }

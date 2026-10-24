@@ -20,6 +20,7 @@ Read [DESIGN.md](DESIGN.md) for what the game is and
 | `npm run validate` | Validate all levels |
 | `npm run playtest -- <id\|all> [--minutes N] [--seed N] [--json]` | Headless bot matches with quality gates; exits 1 on failure |
 | `npm run assets -- help` | Asset toolchain: motions (generate/analyze/vectors/BVH import), texture baking, character build + GLB |
+| `npm run fetch-cc0` | Download CC0 textures listed in `content/cc0/textures.json` into `public/cc0` (gitignored). Without them shaders fall back to procedural. Add a texture: pick a Poly Haven CC0 id, add `{id, role}` to the manifest, use the role in `biomes.ts` layers or `cc0('<role>')`. |
 | `npm run assets:check` | Skeleton + motion analysis + character budgets |
 | `npm run check` | Everything above (typecheck + validate + asset checks + 8-minute playtests on two seeds); run before finishing any change |
 

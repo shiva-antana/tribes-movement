@@ -1,0 +1,18 @@
+{
+  "description": "CC0 PBR textures fetched by `npm run fetch-cc0` into public/cc0/ (gitignored). Source: Poly Haven (all assets CC0, https://polyhaven.com/license). Roles are referenced by biomes and materials; missing files fall back to procedural shading.",
+  "resolution": "1k",
+  "textures": [
+    { "id": "rock_face",          "role": "rock",        "source": "polyhaven", "license": "CC0" },
+    { "id": "cliff_side",         "role": "cliff",       "source": "polyhaven", "license": "CC0" },
+    { "id": "snow_02",            "role": "snow",        "source": "polyhaven", "license": "CC0" },
+    { "id": "aerial_grass_rock",  "role": "grass",       "source": "polyhaven", "license": "CC0" },
+    { "id": "coast_sand_01",      "role": "sand",        "source": "polyhaven", "license": "CC0" },
+    { "id": "red_laterite_soil_stones", "role": "redsoil", "source": "polyhaven", "license": "CC0" },
+    { "id": "cracked_red_ground", "role": "redground",   "source": "polyhaven", "license": "CC0" },
+    { "id": "dirt",               "role": "dirt",        "source": "polyhaven", "license": "CC0" },
+    { "id": "metal_plate",        "role": "metal",       "source": "polyhaven", "license": "CC0" },
+    { "id": "blue_metal_plate",   "role": "metal_paint", "source": "polyhaven", "license": "CC0" },
+    { "id": "rusty_metal_02",     "role": "metal_rust",  "source": "polyhaven", "license": "CC0" },
+    { "id": "factory_wall",       "role": "concrete",    "source": "polyhaven", "license": "CC0" }
+  ]
+}

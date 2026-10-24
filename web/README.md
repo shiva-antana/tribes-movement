@@ -7,6 +7,7 @@ extended by agents: levels are JSON, and every change is checked by headless bot
 ```bash
 cd web
 npm install
+npm run fetch-cc0   # optional: CC0 PBR textures from Poly Haven (~24 MB, gitignored)
 npm run dev      # http://localhost:5173
 ```
 

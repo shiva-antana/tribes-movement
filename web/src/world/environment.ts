@@ -65,7 +65,9 @@ export class Environment {
           float cl = smoothstep(0.55, 0.85, fbm(cp)) * smoothstep(0.0, 0.25, h);
           col = mix(col, vec3(1.0), cl * 0.35);
           col = mix(col, uWaterTint, uUnderwater);
-          gl_FragColor = vec4(col, 1.0);
+          gl_FragColor = vec4(col, 1.0); // output in the renderer's colour space (sRGB)
+#include <colorspace_fragment>
+
         }`,
     });
     this.sky = new THREE.Mesh(new THREE.SphereGeometry(9000, 32, 16), skyMat);
@@ -99,7 +101,9 @@ export class Environment {
             col = mix(col, uWater * 0.6, cracks * 0.6);
             float spec = pow(max(dot(reflect(-uSunDir, vec3(0,1,0)), v), 0.0), 60.0);
             col += uSunColor * spec * 0.6;
-            gl_FragColor = vec4(applyFog(col, vPos), 1.0);
+            gl_FragColor = vec4(applyFog(col, vPos), 1.0); // output in the renderer's colour space (sRGB)
+#include <colorspace_fragment>
+
             return;
           }
           float t = uTime;
@@ -113,7 +117,9 @@ export class Environment {
           col += uSunColor * spec * 1.5;
           float a = mix(0.82, 0.97, fres);
           if (uCamPos.y < vPos.y) { col = uWater * 0.8; a = 0.6; }
-          gl_FragColor = vec4(applyFog(col, vPos), a);
+          gl_FragColor = vec4(applyFog(col, vPos), a); // output in the renderer's colour space (sRGB)
+#include <colorspace_fragment>
+
         }`,
     });
     this.water = new THREE.Mesh(new THREE.PlaneGeometry(SIZE * 3, SIZE * 3, 1, 1), waterMat);
