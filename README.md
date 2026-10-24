@@ -1,5 +1,7 @@
 # Tribes Movement Demo
 
+> **New:** [`web/`](web/) has **Vastlands**, a browser-native Tribes-like built on these movement ideas: procedural self-healing worlds, skiing and jetting, CTF, vehicles and call-downs. See [web/README.md](web/README.md) and [web/DESIGN.md](web/DESIGN.md).
+
 A little project/demo replicating the movement from the Tribes games.
 
 Includes:

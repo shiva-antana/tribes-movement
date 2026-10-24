@@ -1,0 +1,21 @@
+{
+  "id": "undersuit",
+  "description": "Ribbed pressure suit painted over the per-bone body atlas. Masks target regions by bone name.",
+  "size": 1024,
+  "normalStrength": 5,
+  "tiling": false,
+  "layers": [
+    { "type": "fill", "color": "#2c333b", "rough": 0.78, "metal": 0.05 },
+    { "type": "noise", "scale": 90, "octaves": 3, "color": "#3b444f", "amount": 0.45, "height": 0.05 },
+    { "type": "stripes", "axis": "v", "freq": 22, "width": 0.22, "color": "#22282f", "height": -0.08,
+      "mask": { "regions": ["thighL", "thighR", "shinL", "shinR", "upperArmL", "upperArmR", "foreArmL", "foreArmR", "spine"] } },
+    { "type": "stripes", "axis": "u", "freq": 1, "offset": 0.25, "width": 0.07, "color": "$team", "emissive": "$team", "opacity": 0.85,
+      "mask": { "regions": ["thighL", "thighR", "upperArmL", "upperArmR"] } },
+    { "type": "fill", "color": "#1c2025", "rough": 0.55, "mask": { "regions": ["handL", "handR"] } },
+    { "type": "panels", "scale": 3, "seam": 0.05, "depth": 0.2, "seamColor": "#1e2329", "jitter": 0.04,
+      "mask": { "regions": ["chest", "hips", "spine"] } },
+    { "type": "noise", "scale": 8, "octaves": 4, "color": "#4e4335", "amount": 0.35, "seed": 9,
+      "mask": { "noise": { "scale": 5, "threshold": 0.62, "softness": 0.08 } } },
+    { "type": "scratches", "count": 60, "length": 0.03, "width": 0.0015, "color": "#59616b", "depth": 0.05 }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "id": "armor-plate",
+  "description": "Tiling hard-surface armor: panel seams, rivets, team stripes, wear and grime.",
+  "size": 512,
+  "normalStrength": 6,
+  "tiling": true,
+  "layers": [
+    { "type": "fill", "color": "#8c949e", "rough": 0.42, "metal": 0.75 },
+    { "type": "noise", "scale": 6, "octaves": 4, "color": "#6c737c", "amount": 0.5, "rough": 0.15 },
+    { "type": "panels", "scale": 4, "seam": 0.03, "depth": 0.35, "seamColor": "#353a40", "jitter": 0.08, "rivets": true },
+    { "type": "stripes", "axis": "v", "freq": 2, "width": 0.07, "color": "$team", "height": 0.04 },
+    { "type": "scratches", "count": 140, "length": 0.05, "width": 0.0018, "color": "#d0d4da", "depth": 0.06 },
+    { "type": "fill", "color": "#4a4038", "rough": 0.9, "metal": 0.1, "opacity": 0.55,
+      "mask": { "noise": { "scale": 4, "threshold": 0.64, "softness": 0.1, "seed": 4 } } }
+  ]
+}

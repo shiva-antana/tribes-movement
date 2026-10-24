@@ -1,0 +1,30 @@
+{
+  "id": "juggernaut",
+  "name": "Juggernaut (heavy armor)",
+  "description": "Massive powered frame: slab plates, huge pauldrons, twin-reactor pack.",
+  "skeleton": "humanoid",
+  "voxel": 0.017,
+  "bulk": 1.3,
+  "smooth": 0.05,
+  "displacement": 0.002,
+  "radiusScale": { "chest": 1.15, "spine": 1.1, "upperArmL": 1.1, "upperArmR": 1.1, "thighL": 1.12, "thighR": 1.12 },
+  "materials": { "body": "undersuit", "armor": "armor-plate" },
+  "armor": [
+    { "bone": "head", "shape": "box", "size": [0.3, 0.27, 0.32], "at": [0, 0.1, 0], "round": 0.06 },
+    { "bone": "head", "shape": "box", "size": [0.24, 0.035, 0.06], "at": [0, 0.11, -0.16], "round": 0.015, "material": "glow" },
+    { "bone": "chest", "shape": "box", "size": [0.52, 0.38, 0.14], "at": [0, 0.07, -0.17], "round": 0.05, "rot": [-5, 0, 0] },
+    { "bone": "spine", "shape": "box", "size": [0.44, 0.18, 0.12], "at": [0, 0.03, -0.15], "round": 0.04 },
+    { "bone": "chest", "shape": "box", "size": [0.5, 0.5, 0.24], "at": [0, 0.04, 0.25], "round": 0.06 },
+    { "bone": "chest", "shape": "capsule", "size": [0.07, 0.3, 0], "at": [-0.14, 0.06, 0.38] },
+    { "bone": "chest", "shape": "capsule", "size": [0.07, 0.3, 0], "at": [0.14, 0.06, 0.38] },
+    { "bone": "chest", "shape": "sphere", "size": [0.06, 0.04, 0.06], "at": [-0.14, -0.15, 0.38], "material": "glow" },
+    { "bone": "chest", "shape": "sphere", "size": [0.06, 0.04, 0.06], "at": [0.14, -0.15, 0.38], "material": "glow" },
+    { "bone": "upperArmL", "shape": "box", "size": [0.3, 0.18, 0.3], "at": [-0.04, 0.1, 0], "round": 0.07, "rot": [0, 0, 22], "mirror": true },
+    { "bone": "upperArmL", "shape": "box", "size": [0.2, 0.14, 0.15], "at": [-0.17, 0, 0], "round": 0.04, "mirror": true },
+    { "bone": "foreArmL", "shape": "box", "size": [0.24, 0.15, 0.15], "at": [-0.13, 0, 0], "round": 0.04, "mirror": true },
+    { "bone": "hips", "shape": "box", "size": [0.16, 0.18, 0.07], "at": [-0.19, -0.07, 0], "round": 0.03, "rot": [0, 90, 10], "mirror": true },
+    { "bone": "thighL", "shape": "box", "size": [0.2, 0.3, 0.08], "at": [0, -0.2, -0.1], "round": 0.03, "mirror": true },
+    { "bone": "shinL", "shape": "box", "size": [0.16, 0.32, 0.09], "at": [0, -0.2, -0.065], "round": 0.03, "mirror": true },
+    { "bone": "footL", "shape": "box", "size": [0.16, 0.12, 0.3], "at": [0, -0.015, -0.05], "round": 0.04, "mirror": true }
+  ]
+}

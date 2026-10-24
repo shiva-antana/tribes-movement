@@ -1,0 +1,8 @@
+{
+  "description": "Reference comparisons tracked over time by `npm run assets -- bench`. References under reference/ are local-only (gitignored); entries whose reference isn't present are skipped. Scores are appended to history.jsonl so improvement is measurable and regressions fail.",
+  "motions": [
+    { "ours": "run", "ref": "tribes-larmor-run", "minScore": 0 },
+    { "ours": "jet", "ref": "tribes-larmor-jet", "minScore": 0 },
+    { "ours": "idle", "ref": "tribes-larmor-root", "minScore": 0 }
+  ]
+}

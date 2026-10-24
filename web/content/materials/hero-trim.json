@@ -1,0 +1,12 @@
+{
+  "id": "hero-trim",
+  "description": "Ceremonial light armor: ivory plates with gold seams and team-colored inlay. Flat for cel shading.",
+  "size": 512,
+  "normalStrength": 3,
+  "tiling": true,
+  "layers": [
+    { "type": "fill", "color": "#ece8df", "rough": 0.45, "metal": 0.15 },
+    { "type": "panels", "scale": 2, "seam": 0.025, "depth": 0.15, "seamColor": "#c9a24a", "jitter": 0.02 },
+    { "type": "stripes", "axis": "v", "freq": 1, "offset": 0.0, "width": 0.06, "color": "$team", "emissive": "$team", "opacity": 0.8 }
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "name": "vastlands",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "typecheck": "tsc --noEmit",
+    "validate": "tsx scripts/validate.ts",
+    "playtest": "tsx scripts/playtest.ts",
+    "check": "tsc --noEmit && tsx scripts/validate.ts && npm run -s assets:check && tsx scripts/playtest.ts all --minutes 8 --seeds 1,2",
+    "assets": "tsx scripts/assets.ts",
+    "assets:check": "tsx scripts/assets.ts skeleton validate && tsx scripts/assets.ts motion analyze all && tsx scripts/assets.ts character build all",
+    "tribes": "tsx scripts/tribes.ts"
+  },
+  "dependencies": {
+    "three": "0.180.0"
+  },
+  "devDependencies": {
+    "@gltf-transform/core": "^4.2.1",
+    "@types/node": "^22.18.0",
+    "@types/three": "0.180.0",
+    "tsx": "^4.20.6",
+    "typescript": "5.9.3",
+    "vite": "7.3.7"
+  }
+}

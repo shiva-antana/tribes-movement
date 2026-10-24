@@ -1,0 +1,14 @@
+{
+  "name": "tribes-movement",
+  "private": true,
+  "description": "Forwards common commands to the Vastlands browser game in web/",
+  "scripts": {
+    "postinstall": "npm --prefix web install",
+    "dev": "npm --prefix web run dev",
+    "build": "npm --prefix web run build",
+    "validate": "npm --prefix web run validate",
+    "playtest": "npm --prefix web run playtest --",
+    "check": "npm --prefix web run check",
+    "assets": "npm --prefix web run assets --"
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "id": "rust-badlands",
+  "name": "Rust Badlands",
+  "author": "Vastlands",
+  "description": "Terraced mesas and long ski slopes. Jets run hot here, so heat discipline wins. A highway between the mesas changes everything for armor.",
+  "biome": "badlands",
+  "seed": 4242,
+  "tags": ["classic", "heat", "skiing"]
+}

@@ -1,0 +1,57 @@
+{
+  "id": "anime-hair",
+  "description": "Anime hair: deep plum base, strand streaks, an 'angel ring' sheen band near the roots, lavender tips. v runs root\u2192tip.",
+  "size": 256,
+  "normalStrength": 1,
+  "tiling": false,
+  "layers": [
+    {
+      "type": "fill",
+      "color": "#4b3a66",
+      "rough": 0.5
+    },
+    {
+      "type": "stripes",
+      "axis": "u",
+      "freq": 7,
+      "width": 0.35,
+      "color": "#3a2c52",
+      "opacity": 0.7
+    },
+    {
+      "type": "stripes",
+      "axis": "v",
+      "freq": 1,
+      "offset": 0.28,
+      "width": 0.07,
+      "color": "#c8b8f0",
+      "opacity": 0.9
+    },
+    {
+      "type": "fill",
+      "color": "#9d86d8",
+      "opacity": 0.55,
+      "mask": {
+        "rect": [
+          0,
+          0.72,
+          1,
+          1
+        ]
+      }
+    },
+    {
+      "type": "fill",
+      "color": "#c0aef0",
+      "opacity": 0.45,
+      "mask": {
+        "rect": [
+          0,
+          0.88,
+          1,
+          1
+        ]
+      }
+    }
+  ]
+}

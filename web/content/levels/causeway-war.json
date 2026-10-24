@@ -1,0 +1,52 @@
+{
+  "id": "causeway-war",
+  "name": "Causeway War",
+  "author": "Vastlands",
+  "description": "A shallow, wind-swept sea between two coastal bases. The only rich ground is the motherlode shoal in the middle. Whoever builds the causeway first brings the tanks.",
+  "biome": "archipelago",
+  "seed": 9001,
+  "teamSize": 6,
+  "startMateriel": 350,
+  "overrides": {
+    "seaLevel": 44,
+    "basesUnderwater": false,
+    "windBase": 14,
+    "gust": 10
+  },
+  "deposits": [
+    {
+      "x": 0,
+      "z": 0,
+      "amount": 4000,
+      "richness": 4
+    },
+    {
+      "x": -500,
+      "z": 380,
+      "amount": 700
+    },
+    {
+      "x": 500,
+      "z": -380,
+      "amount": 700
+    },
+    {
+      "x": -650,
+      "z": -420,
+      "amount": 700
+    },
+    {
+      "x": 650,
+      "z": 420,
+      "amount": 700
+    }
+  ],
+  "tags": [
+    "terraforming",
+    "siege",
+    "economy"
+  ],
+  "expect": {
+    "flagGrabsPer5Min": 0.4
+  }
+}

@@ -1,0 +1,184 @@
+{
+  "id": "hero-suit",
+  "description": "Anime hero bodysuit: flat cel-friendly colors, skin on face/neck, gold trims, team accents. Face decals placed with FACE_UV (head-bone meters \u2192 head tile).",
+  "size": 1024,
+  "normalStrength": 2,
+  "tiling": false,
+  "layers": [
+    {
+      "type": "fill",
+      "color": "#2b3656",
+      "rough": 0.7
+    },
+    {
+      "type": "noise",
+      "scale": 40,
+      "octaves": 2,
+      "color": "#34416a",
+      "amount": 0.25
+    },
+    {
+      "type": "fill",
+      "color": "#f4d3c0",
+      "rough": 0.6,
+      "mask": {
+        "regions": [
+          "head",
+          "neck"
+        ]
+      }
+    },
+    {
+      "type": "fill",
+      "color": "#1f2436",
+      "mask": {
+        "regions": [
+          "handL",
+          "handR",
+          "footL",
+          "footR",
+          "toeL",
+          "toeR"
+        ]
+      }
+    },
+    {
+      "type": "stripes",
+      "axis": "v",
+      "freq": 1,
+      "offset": 0.42,
+      "width": 0.07,
+      "color": "#d8b45a",
+      "height": 0.06,
+      "mask": {
+        "regions": [
+          "foreArmL",
+          "foreArmR",
+          "shinL",
+          "shinR"
+        ]
+      }
+    },
+    {
+      "type": "stripes",
+      "axis": "u",
+      "freq": 1,
+      "offset": 0.25,
+      "width": 0.05,
+      "color": "$team",
+      "emissive": "$team",
+      "opacity": 0.9,
+      "mask": {
+        "regions": [
+          "thighL",
+          "thighR",
+          "upperArmL",
+          "upperArmR",
+          "spine"
+        ]
+      }
+    },
+    {
+      "type": "panels",
+      "scale": 2,
+      "seam": 0.03,
+      "depth": 0.12,
+      "seamColor": "#1d2440",
+      "jitter": 0.02,
+      "mask": {
+        "regions": [
+          "chest",
+          "hips"
+        ]
+      }
+    },
+    {
+      "type": "decal",
+      "shape": "blush",
+      "in": "head",
+      "at": [
+        0.3467,
+        0.3733
+      ],
+      "size": 0.1,
+      "aspect": 0.5,
+      "color": "#ff8f8f"
+    },
+    {
+      "type": "decal",
+      "shape": "blush",
+      "in": "head",
+      "at": [
+        0.6533,
+        0.3733
+      ],
+      "size": 0.1,
+      "aspect": 0.5,
+      "color": "#ff8f8f"
+    },
+    {
+      "type": "decal",
+      "shape": "eye",
+      "in": "head",
+      "at": [
+        0.3967,
+        0.46
+      ],
+      "size": 0.105,
+      "aspect": 0.9,
+      "color": "#5ab8ff",
+      "emissive": "#5ab8ff",
+      "flipX": true
+    },
+    {
+      "type": "decal",
+      "shape": "eye",
+      "in": "head",
+      "at": [
+        0.6033,
+        0.46
+      ],
+      "size": 0.105,
+      "aspect": 0.9,
+      "color": "#5ab8ff",
+      "emissive": "#5ab8ff"
+    },
+    {
+      "type": "decal",
+      "shape": "brow",
+      "in": "head",
+      "at": [
+        0.3933,
+        0.54
+      ],
+      "size": 0.1,
+      "aspect": 0.8,
+      "color": "#3d2f4a",
+      "flipX": true
+    },
+    {
+      "type": "decal",
+      "shape": "brow",
+      "in": "head",
+      "at": [
+        0.6067,
+        0.54
+      ],
+      "size": 0.1,
+      "aspect": 0.8,
+      "color": "#3d2f4a"
+    },
+    {
+      "type": "decal",
+      "shape": "mouth",
+      "in": "head",
+      "at": [
+        0.5,
+        0.2767
+      ],
+      "size": 0.065,
+      "aspect": 0.8,
+      "color": "#9a5058"
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "id": "shattered-archipelago",
+  "name": "Shattered Archipelago",
+  "author": "Vastlands",
+  "description": "Seabed bases under air domes, linked by an island chain. Bridge or causeway the straits to roll siege tanks across.",
+  "biome": "archipelago",
+  "seed": 777,
+  "tags": [
+    "water",
+    "underwater-bases",
+    "siege"
+  ],
+  "expect": {
+    "flagGrabsPer5Min": 0.6
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "id": "katabatic-shelf",
+  "name": "Katabatic Shelf",
+  "author": "Vastlands",
+  "description": "Frozen highlands and long ice lakes. Cold air pours off the ridges in surges, so fly low and ski the ice. Two motherlodes sit on the central plateau.",
+  "biome": "tundra",
+  "seed": 1234,
+  "tags": ["classic", "ice", "wind"]
+}

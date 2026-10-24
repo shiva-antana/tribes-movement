@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vastlands</title>
+<style>
+  :root { --ui: rgba(14, 20, 28, 0.62); --line: rgba(160, 200, 230, 0.25); --txt: #dbe6ee; --acc: #9fe8ff; --warn: #ffb070; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #0b0f14; color: var(--txt); font: 13px/1.35 "Segoe UI", system-ui, -apple-system, sans-serif; user-select: none; }
+  canvas { display: block; }
+  .hidden { display: none !important; }
+  .hud { position: fixed; inset: 0; pointer-events: none; }
+  .panel { position: absolute; background: var(--ui); border: 1px solid var(--line); border-radius: 4px; padding: 8px 10px; backdrop-filter: blur(3px); }
+  .dim { opacity: 0.6; font-size: 11px; }
+  .crosshair { position: absolute; left: 50%; top: 50%; width: 18px; height: 18px; margin: -9px; border: 1.5px solid rgba(220,240,255,0.75); border-radius: 50%; }
+  .crosshair::after { content: ''; position: absolute; left: 50%; top: 50%; width: 3px; height: 3px; margin: -1.5px; background: #fff; border-radius: 50%; }
+  .hitmark { position: absolute; left: 50%; top: 50%; width: 30px; height: 30px; margin: -15px; border: 2px solid #ff6a6a; transform: rotate(45deg); opacity: 0; transition: opacity .1s; }
+  .vignette { position: absolute; inset: 0; box-shadow: inset 0 0 160px 40px rgba(255,40,20,0.9); opacity: 0; transition: opacity .25s; }
+  .status { left: 16px; bottom: 16px; width: 300px; }
+  .bar-row { display: flex; align-items: center; gap: 8px; margin: 3px 0; }
+  .bar-label { width: 62px; font-size: 10px; letter-spacing: 1px; opacity: .75; }
+  .bar { flex: 1; height: 9px; background: rgba(255,255,255,0.08); border-radius: 2px; overflow: hidden; }
+  .bar .fill { height: 100%; transition: width .08s; }
+  .bar.hp .fill { background: linear-gradient(90deg, #4fd18b, #a6f5c5); }
+  .bar.en .fill { background: linear-gradient(90deg, #3a9dff, #9fe8ff); }
+  .bar.heat .fill { background: linear-gradient(90deg, #ffb347, #ff5a3c); }
+  .bar.heat.over { animation: blink .3s infinite alternate; }
+  @keyframes blink { from { opacity: 1 } to { opacity: .3 } }
+  .bar-val { width: 66px; text-align: right; font-variant-numeric: tabular-nums; font-size: 11px; }
+  .speed { margin-top: 6px; font-size: 12px; }
+  .speed b { font-size: 22px; font-variant-numeric: tabular-nums; }
+  .tag { display: inline-block; margin-left: 6px; padding: 1px 5px; border-radius: 2px; font-size: 10px; font-weight: 700; letter-spacing: 1px; }
+  .tag.ski { background: #2f7fd1; } .tag.jet { background: #c2551f; } .tag.cool { background: rgba(160,220,255,0.18); font-weight: 400; }
+  .weapons { right: 16px; bottom: 16px; min-width: 230px; }
+  .wpn { display: flex; gap: 8px; padding: 2px 4px; opacity: .55; } .wpn.sel { opacity: 1; background: rgba(159,232,255,0.12); border-left: 2px solid var(--acc); }
+  .wpn .k { opacity: .6; width: 10px; } .wpn .ammo { margin-left: auto; font-variant-numeric: tabular-nums; }
+  .pack { margin-top: 6px; color: #ffd27a; font-size: 12px; } .veh { font-size: 16px; font-weight: 700; color: var(--acc); }
+  .score { left: 50%; top: 12px; transform: translateX(-50%); text-align: center; min-width: 380px; }
+  .score .team b { font-size: 18px; }
+  .info { left: 16px; top: 16px; display: flex; gap: 10px; align-items: center; }
+  .info .biome { font-weight: 700; letter-spacing: 1px; color: #ffe9b0; } .mat { color: #ffd27a; font-size: 15px; }
+  .wind { width: 40px; height: 40px; border: 1px solid var(--line); border-radius: 50%; display: grid; place-items: center; }
+  .wind-arrow { font-size: 18px; color: var(--acc); }
+  .minimap { right: 16px; top: 16px; padding: 4px; } .minimap canvas { display: block; width: 200px; height: 200px; image-rendering: pixelated; }
+  .prompt { position: absolute; left: 50%; top: 62%; transform: translateX(-50%); font-size: 15px; color: #fff; text-shadow: 0 1px 3px #000; }
+  .warn { position: absolute; left: 50%; top: 22%; transform: translateX(-50%); font-size: 16px; font-weight: 700; color: var(--warn); text-shadow: 0 1px 4px #000; letter-spacing: 1px; }
+  .feed { position: absolute; left: 16px; top: 80px; width: 460px; }
+  .msg { text-shadow: 0 1px 2px #000; margin: 2px 0; transition: opacity 1s; } .msg.fade { opacity: 0; }
+  .build { right: 232px; top: 16px; width: 290px; }
+  .build .title { font-weight: 700; color: #ffd27a; margin-bottom: 4px; }
+  .cd { display: flex; gap: 8px; padding: 2px 4px; } .cd.sel { background: rgba(255,210,122,0.18); border-left: 2px solid #ffd27a; } .cd.poor { opacity: .45; }
+  .cd .k { width: 12px; opacity: .6; } .cd .cost { margin-left: auto; color: #ffd27a; }
+  .build .desc { margin: 6px 0 4px; font-size: 12px; opacity: .85; } .build .ok { color: #7dffb2; } .build .bad { color: #ff8a6a; }
+  .board { left: 50%; top: 50%; transform: translate(-50%, -50%); display: flex; gap: 24px; min-width: 640px; }
+  .board .col { flex: 1; } .board .title { font-weight: 700; margin-bottom: 6px; }
+  .board .row { display: grid; grid-template-columns: 1fr 80px 50px 30px; gap: 6px; padding: 1px 0; } .board .row.me { color: #fff; font-weight: 700; }
+  .respawn { position: absolute; left: 50%; top: 40%; transform: translate(-50%, -50%); text-align: center; font-size: 28px; font-weight: 700; letter-spacing: 4px; color: #ff8a6a; text-shadow: 0 2px 6px #000; }
+  .respawn .dim { font-size: 13px; letter-spacing: 0; color: var(--txt); }
+  .lockhint { position: fixed; left: 50%; bottom: 40%; transform: translateX(-50%); padding: 8px 16px; background: var(--ui); border: 1px solid var(--line); border-radius: 4px; pointer-events: none; }
+  .overlay { position: fixed; inset: 0; display: grid; place-items: center; background: rgba(6, 10, 14, 0.55); z-index: 10; }
+  .overlay.main { background: radial-gradient(ellipse at 50% 30%, #2b3a48 0%, #0b0f14 70%); }
+  .menu { width: min(900px, 94vw); max-height: 94vh; overflow: auto; padding: 28px; background: rgba(14,20,28,0.88); border: 1px solid var(--line); border-radius: 6px; }
+  .menu.small { width: min(620px, 94vw); }
+  .menu h1 { margin: 0; font-size: 46px; letter-spacing: 14px; font-weight: 300; color: #e8f2fa; }
+  .menu h2 { margin: 0 0 10px; letter-spacing: 4px; font-weight: 400; }
+  .menu .sub { opacity: .65; letter-spacing: 2px; margin-bottom: 20px; }
+  .biomes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px; }
+  .biome-card { padding: 14px; border: 1px solid var(--line); border-radius: 4px; cursor: pointer; background: rgba(255,255,255,0.03); }
+  .biome-card:hover { background: rgba(159,232,255,0.06); } .biome-card.sel { border-color: var(--acc); background: rgba(159,232,255,0.1); }
+  .bn { font-weight: 700; margin-bottom: 6px; color: #ffe9b0; } .bd { font-size: 12px; opacity: .8; }
+  .row { display: flex; gap: 16px; align-items: center; margin: 12px 0; flex-wrap: wrap; }
+  input, select { background: #0e151c; color: var(--txt); border: 1px solid var(--line); padding: 4px 6px; border-radius: 3px; margin-left: 6px; width: 100px; }
+  button { background: var(--acc); color: #06121a; border: 0; padding: 10px 26px; font-weight: 700; letter-spacing: 3px; border-radius: 3px; cursor: pointer; }
+  button.ghost { background: transparent; color: var(--txt); border: 1px solid var(--line); }
+  .help { margin-top: 18px; font-size: 12px; opacity: .75; line-height: 1.7; }
+  .section { margin: 12px 0 6px; font-size: 11px; letter-spacing: 2px; opacity: .6; }
+  .opts { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
+  .opt { padding: 8px 10px; border: 1px solid var(--line); border-radius: 3px; cursor: pointer; display: flex; flex-direction: column; gap: 2px; }
+  .opt span { font-size: 11px; opacity: .7; } .opt.sel { border-color: var(--acc); background: rgba(159,232,255,0.1); } .opt.na { opacity: .35; cursor: not-allowed; }
+  @media (max-width: 700px) { .biomes, .opts { grid-template-columns: 1fr; } .menu h1 { font-size: 30px; letter-spacing: 6px; } }
+</style>
+</head>
+<body>
+<script type="module" src="/src/main.ts"></script>
+</body>
+</html>
