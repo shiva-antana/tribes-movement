@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { CALLDOWNS, CalldownDef, PACKS, TEAM_COLORS, WEAPONS } from '../config';
+import { BUILD_LIMIT, CALLDOWNS, CalldownDef, PACKS, TEAM_COLORS, WEAPONS } from '../config';
 import { SIZE } from '../world/terrain';
 import type { Game } from '../game/game';
 import type { PlacementCheck } from '../game/build';
@@ -195,11 +195,11 @@ export class Hud {
     this.build.classList.toggle('hidden', !g.build.active);
     if (g.build.active) {
       const bs = this.buildStatus;
-      this.build.innerHTML = `<div class="title">CALL-DOWN · materiel ${Math.floor(g.teams[p.team].materiel)}</div>` + CALLDOWNS.map((d, i) =>
-        `<div class="cd ${i === g.build.selected ? 'sel' : ''} ${g.teams[p.team].materiel < d.cost ? 'poor' : ''}"><span class="k">${d.key}</span>${d.name}<span class="cost">${d.kind === 'road' ? 'by m³' : d.cost}</span></div>`).join('') +
+      this.build.innerHTML = `<div class="title">CALL-DOWN · materiel ${Math.floor(g.teams[p.team].materiel)} · built ${g.build.teamBuilt(p.team)}/${BUILD_LIMIT}</div>` + CALLDOWNS.map((d, i) =>
+        `<div class="cd ${i === g.build.selected ? 'sel' : ''} ${g.teams[p.team].materiel < d.cost ? 'poor' : ''}"><span class="k">${d.key}</span>${d.name}<span class="cost">${d.kind === 'road' ? 'by m³' : d.kind === 'prefab' ? (g.build.prefab ? g.build.prefabCost(g.build.prefab) : '–') : d.cost}</span></div>`).join('') +
         `<div class="desc">${CALLDOWNS[g.build.selected].desc}</div>` +
         (bs ? `<div class="${bs.c.ok ? 'ok' : 'bad'}">${bs.c.ok ? (bs.c.reason || 'LMB to call down') : bs.c.reason}</div>` : '') +
-        `<div class="dim">rotation ${Math.round((g.build.rotation * 180 / Math.PI) % 360)}° · tilt ${['wall', 'ramp', 'floor'][g.build.tiltIndex]}${g.build.freePlace ? ' · FREE' : ''}</div><div class="dim">1-0 / [ ] select · wheel rotate · R tilt · Alt free-place · B close</div>`;
+        `<div class="dim">rotation ${Math.round((g.build.rotation * 180 / Math.PI) % 360)}° · tilt ${['wall', 'ramp', 'floor'][g.build.tiltIndex]}${g.build.freePlace ? ' · FREE' : ''}</div><div class="dim">1-0 / = / - / [ ] select · wheel rotate · R tilt · Alt free · P next prefab · K save layout · B close</div>`;
     }
 
     // Scoreboard

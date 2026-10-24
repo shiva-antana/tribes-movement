@@ -76,6 +76,7 @@ export class Player {
   private body!: THREE.Mesh;
   private flame!: THREE.Mesh;
   private character: CharacterInstance | null = null;
+  private wantBody: string | null = null;
   private wasGrounded = false;
 
   constructor(readonly name: string, readonly team: number, readonly isBot: boolean, loadout: Loadout, private game: Game) {
@@ -103,14 +104,23 @@ export class Player {
     this.character = null;
     const lib = this.game.characters;
     if (lib) {
-      // Generated, skinned character (content/characters) scaled to the armor's height.
-      this.character = lib.create(this.loadout.body ?? ARMOR_CHARACTER[a.id], col);
-      this.character.mesh.scale.setScalar(a.height / 1.86);
-      this.flame = new THREE.Mesh(new THREE.ConeGeometry(0.16 * s, 1.2 * s, 8), makeGlowMaterial(0x9fd8ff, 0.85));
-      this.flame.rotation.x = Math.PI;
-      this.flame.position.set(0, a.height * 0.38, 0.32 * s * (a.id === 'heavy' ? 1.5 : 1));
-      this.mesh.add(this.character.mesh, this.flame);
-      return;
+      // Generated, skinned character (content/characters) scaled to the armor's height. Characters are
+      // built in a worker; until this one is ready the player shows as the simple capsule figure.
+      const id = this.loadout.body ?? ARMOR_CHARACTER[a.id];
+      const inst = lib.create(id, col);
+      if (inst) {
+        this.character = inst;
+        this.wantBody = null;
+        inst.mesh.scale.setScalar(a.height / 1.86);
+        this.flame = new THREE.Mesh(new THREE.ConeGeometry(0.16 * s, 1.2 * s, 8), makeGlowMaterial(0x9fd8ff, 0.85));
+        this.flame.rotation.x = Math.PI;
+        this.flame.position.set(0, a.height * 0.38, 0.32 * s * (a.id === 'heavy' ? 1.5 : 1));
+        this.mesh.add(inst.mesh, this.flame);
+        return;
+      }
+      const want = `${id}:${a.id}`;
+      this.wantBody = want;
+      void lib.ensure(id, col).then(() => { if (this.wantBody === want) this.buildMesh(); });
     }
     this.body = new THREE.Mesh(new THREE.CapsuleGeometry(a.radius * 0.85, a.height * 0.45, 4, 10), makeLitMaterial(col));
     this.body.position.y = a.height * 0.5;

@@ -41,7 +41,7 @@ export class Bot {
       g.exitVehicle(p);
     }
     // Crew a friendly siege tank sitting idle nearby.
-    if (this.role !== 'offense' && !p.flag) {
+    if (this.role !== 'offense' && !p.flag && !this.assist) {
       const tank = g.vehicles.find(v => v.alive && v.kind === 'tank' && v.team === p.team && !v.driver && v.pos.distanceTo(p.pos) < 25);
       if (tank) { g.enterVehicle(p, tank); return; }
     }
@@ -277,13 +277,13 @@ export class Bot {
       const at = new THREE.Vector3(home.x + (p.team ? -1 : 1) * 70, 0, home.z + 40);
       at.y = g.terrain.heightAt(at.x, at.z);
       g.build.callDown(p, CALLDOWNS.find(d => d.kind === 'uplink')!, at, { free: true });
-    } else if (uplink && team.materiel > 420 && !g.structures.some(s => s.kind === 'beacon' && s.team === p.team && s.alive) && !g.vehicles.some(v => v.kind === 'tank' && v.team === p.team && v.alive)) {
+    } else if (uplink && team.materiel > 420 && g.time - (team.lastSiege ?? -1e9) > 150 && !g.structures.some(s => s.kind === 'beacon' && s.team === p.team && s.alive) && !g.vehicles.some(v => v.kind === 'tank' && v.team === p.team && v.alive)) {
       const door = g.baseDoor(p.team);
       const out = new THREE.Vector3(door.x - home.x, 0, door.z - home.z).normalize();
       const at = door.clone().addScaledVector(out, 35);
       at.y = g.terrain.heightAt(at.x, at.z);
       if (p.pos.distanceTo(at) > 60) { this.buildGoal = at; return; }
-      g.build.callDown(p, CALLDOWNS.find(d => d.kind === 'siegeDrop')!, at, { free: true });
+      if (g.build.callDown(p, CALLDOWNS.find(d => d.kind === 'siegeDrop')!, at, { free: true }) === '') team.lastSiege = g.time;
     }
   }
 

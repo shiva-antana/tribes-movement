@@ -20,7 +20,7 @@ import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment
 import { showLoadoutMenu, showVehicleMenu, MatchSetup } from '../ui/menus';
 import { Input } from '../input';
 import { Audio } from '../audio';
-import { CALLDOWNS, KILL_SPOILS, START_MATERIEL, StructureKind, TEAM_COLORS, TEAM_NAMES, VEHICLES, VehicleKind, WeaponDef } from '../config';
+import { ARMOR_CHARACTER, CALLDOWNS, KILL_SPOILS, START_MATERIEL, StructureKind, TEAM_COLORS, TEAM_NAMES, VEHICLES, VehicleKind, WeaponDef } from '../config';
 
 const BOT_NAMES = ['Kestrel', 'Vash', 'Orrin', 'Tamsin', 'Brakk', 'Ilse', 'Corvo', 'Nyx', 'Halvard', 'Juno', 'Rook', 'Sable', 'Tycho', 'Wren', 'Ashe', 'Mako', 'Quill', 'Daro'];
 
@@ -55,6 +55,8 @@ export interface TeamState {
   score: number; materiel: number;
   /** Highway the team's builders are grading from base toward their richest extractor. */
   road?: { tip: THREE.Vector3; target: THREE.Vector3 };
+  /** Game time of the last siege call-down (one at a time; the pod takes a while to land). */
+  lastSiege?: number;
 }
 
 export class Game {
@@ -142,6 +144,8 @@ export class Game {
       }
     }
     for (const p of this.players) p.spawn(this.spawnPoint(p.team));
+    // Characters are meshed/baked in workers; start every armor × team now (players show placeholders meanwhile).
+    if (this.characters) for (const t of [0, 1]) for (const id of new Set(this.players.map(p => p.loadout.body ?? ARMOR_CHARACTER[p.armor.id]))) void this.characters.ensure(id, TEAM_COLORS[t]);
     human.controls.yaw = this.baseYaw(0) + Math.PI;
 
     this.build = new BuildSystem(this);
@@ -618,7 +622,7 @@ export class Game {
     }
     if (this.build.active) {
       c.fire = false;
-      for (let i = 0; i < CALLDOWNS.length; i++) if (inp.hit(i === 9 ? 'Digit0' : i === 10 ? 'Minus' : `Digit${i + 1}`)) { this.build.selected = i; this.build.roadStart = null; }
+      for (let i = 0; i < CALLDOWNS.length; i++) if (inp.hit(i === 9 ? 'Digit0' : CALLDOWNS[i].key === '=' ? 'Equal' : CALLDOWNS[i].key === '-' ? 'Minus' : `Digit${i + 1}`)) { this.build.selected = i; this.build.roadStart = null; }
       if (inp.hit('BracketRight') || inp.hit('BracketLeft')) {
         this.build.selected = (this.build.selected + (inp.hit('BracketRight') ? 1 : -1) + CALLDOWNS.length) % CALLDOWNS.length;
         this.build.roadStart = null;
@@ -626,6 +630,12 @@ export class Game {
       // Wheel rotates the piece in 15° steps; R tilts walls (wall → ramp → floor); hold Alt to place freely.
       if (inp.wheel) this.build.rotation += Math.sign(inp.wheel) * Math.PI / 12;
       if (inp.hit('KeyR')) this.build.tiltIndex = (this.build.tiltIndex + 1) % 3;
+      if (inp.hit('KeyP')) this.build.prefabIndex++;
+      if (inp.hit('KeyK')) {
+        const aim = this.build.aimPoint(p);
+        const pf = aim ? this.build.captureLayout(p, aim) : null;
+        this.message(pf ? `Saved layout "${pf.name}" (${pf.pieces.length} pieces). Select Prefab (=) to drop it.` : 'No structures of yours within 25 m of your aim to save', pf ? '#9fffcf' : '#ff8a6a');
+      }
       this.build.freePlace = inp.down('AltLeft') || inp.down('AltRight');
       if (inp.clicked()) {
         const def = CALLDOWNS[this.build.selected];

@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import { CALLDOWNS, CalldownDef, ROAD_COST_PER_M3, StructureKind } from '../config';
+import { CALLDOWNS, CalldownDef, ROAD_COST_PER_M3, StructureKind, BUILD_LIMIT, STRUCTURE_COST } from '../config';
+import { CONTENT_PREFABS, loadUserPrefabs, saveUserPrefab, PrefabDef } from '../content/prefabs';
 import { blueprint } from './structures';
 import { makeGlowMaterial, makeLitMaterial } from './materials';
 import type { Game } from './game';
@@ -72,6 +73,9 @@ export class BuildSystem {
   tiltIndex = 0;
   freePlace = false;                  // hold Alt: ignore snapping
   private preview: THREE.Group | null = null;
+  /** Prefab layouts: content prefabs + the player's saved ones. */
+  prefabIndex = 0;
+  private userPrefabs: PrefabDef[] = typeof localStorage !== 'undefined' ? loadUserPrefabs() : [];
   private previewKey = '';
 
   constructor(private game: Game) {
@@ -94,6 +98,41 @@ export class BuildSystem {
   }
 
   defAt(i: number): CalldownDef { return CALLDOWNS[i]; }
+
+  // ---------------------------------------------------------------- prefabs & budget
+  get prefabs(): PrefabDef[] { return [...CONTENT_PREFABS, ...this.userPrefabs]; }
+  get prefab(): PrefabDef | null { const all = this.prefabs; return all.length ? all[((this.prefabIndex % all.length) + all.length) % all.length] : null; }
+  prefabCost(pf: PrefabDef) { return Math.round(pf.pieces.reduce((s, q) => s + (STRUCTURE_COST[q.kind] ?? 20), 0) * 0.9); }
+  /** Alive deployables a team has (the build budget counts these). */
+  teamBuilt(team: number) { return this.game.structures.filter(s => s.alive && s.deployable && s.team === team).length; }
+
+  /** World placements of a prefab's pieces, anchored at `at` and turned by `yaw` (pieces follow the ground). */
+  prefabPlacements(pf: PrefabDef, at: THREE.Vector3, yaw: number) {
+    const g = this.game, up = new THREE.Vector3(0, 1, 0);
+    return pf.pieces.map(q => {
+      const pos = new THREE.Vector3(q.at[0], 0, q.at[2]).applyAxisAngle(up, yaw).add(at);
+      pos.y = g.terrain.heightAt(pos.x, pos.z) + q.at[1];
+      return { kind: q.kind, pos, yaw: yaw + (q.yaw * Math.PI) / 180, tilt: ((q.tilt ?? 0) * Math.PI) / 180 };
+    });
+  }
+
+  /** Save the team's own structures around `aim` (25 m) as a reusable layout. */
+  captureLayout(p: Player, aim: THREE.Vector3, name?: string): PrefabDef | null {
+    const g = this.game, yaw = Math.round(p.controls.yaw / STEP) * STEP, up = new THREE.Vector3(0, 1, 0);
+    const skip = new Set<StructureKind>(['extractor', 'beacon', 'skyPlatform', 'bridge', 'bunker', 'flagStand']);
+    const pieces = g.structures.filter(s => s.alive && s.deployable && s.team === p.team && !skip.has(s.kind) && Math.hypot(s.pos.x - aim.x, s.pos.z - aim.z) < 25)
+      .map(s => {
+        const l = new THREE.Vector3(s.pos.x - aim.x, 0, s.pos.z - aim.z).applyAxisAngle(up, -yaw);
+        return { kind: s.kind, at: [+l.x.toFixed(2), +(s.pos.y - g.terrain.heightAt(s.pos.x, s.pos.z)).toFixed(2), +l.z.toFixed(2)] as [number, number, number], yaw: +(((s.yaw - yaw) * 180) / Math.PI).toFixed(1), tilt: +((s.tilt * 180) / Math.PI).toFixed(1) };
+      });
+    if (!pieces.length) return null;
+    const n = this.userPrefabs.length + 1;
+    const pf: PrefabDef = { id: `layout-${Date.now().toString(36)}`, name: name ?? `My layout ${n}`, pieces, user: true };
+    this.userPrefabs.push(pf);
+    if (typeof localStorage !== 'undefined') saveUserPrefab(pf);
+    this.prefabIndex = this.prefabs.length - 1;
+    return pf;
+  }
 
   /** Rotation, snapping and Tiny Glade-style merge rules. */
   resolve(p: Player, def: CalldownDef, aim: THREE.Vector3, pose?: Pose): Placement {
@@ -170,6 +209,18 @@ export class BuildSystem {
     const res = (ok: boolean, reason: string): PlacementCheck => ({ ok, reason: ok && pl ? pl.note : reason, at, yaw, placement: pl ?? undefined });
     if (p.loadout.pack !== 'constructor') return res(false, 'Need Constructor pack (inventory station)');
     if (def.kind === 'road') return this.checkRoad(p, at);
+    const built = this.teamBuilt(p.team);
+    if (def.kind === 'prefab') {
+      const pf = this.prefab;
+      if (!pf) return res(false, 'No prefabs yet: press K to save the structures around your aim');
+      const cost = this.prefabCost(pf);
+      if (g.teams[p.team].materiel < cost) return { ...res(false, `Need ${cost} materiel for ${pf.name}`), cost };
+      if (built + pf.pieces.length > BUILD_LIMIT) return res(false, `Build limit: ${built}/${BUILD_LIMIT} structures`);
+      const enemyBase = g.terrain.bases[1 - p.team];
+      if (Math.hypot(at.x - enemyBase.x, at.z - enemyBase.z) < 220) return res(false, 'Too close to enemy base');
+      return { ok: true, reason: `${pf.name}: ${pf.pieces.length} pieces · ${cost} materiel (P: next layout)`, at, yaw: pl?.yaw ?? yaw, cost };
+    }
+    if (def.kind !== 'siegeDrop' && built >= BUILD_LIMIT) return res(false, `Build limit: ${built}/${BUILD_LIMIT} structures`);
     if (g.teams[p.team].materiel < def.cost) return res(false, `Need ${def.cost} materiel`);
     if (def.requires === 'uplink' && !g.structures.some(s => s.kind === 'uplink' && s.team === p.team && s.alive)) return res(false, 'Requires a Command Uplink');
     const enemyBase = g.terrain.bases[1 - p.team];
@@ -249,6 +300,13 @@ export class BuildSystem {
     const yaw = c.yaw;
     const team = p.team;
     const pl = c.placement;
+    if (def.kind === 'prefab') {
+      const pf = this.prefab!;
+      g.teams[team].materiel -= c.cost ?? 0;
+      for (const q of this.prefabPlacements(pf, pos, yaw)) this.drop(q.pos, team, () => { g.spawnStructure(q.kind, team, q.pos, q.yaw, true, {}, q.tilt); });
+      g.message(`${p.name} called down ${pf.name} (${pf.pieces.length} pieces)`, team === g.human.team ? '#ffd27a' : '#ffb08a');
+      return '';
+    }
     if (pl?.merge && pl.host) {
       const host = pl.host, merge = pl.merge;
       this.drop(host.pos.clone().add(new THREE.Vector3(0, WALL_H, 0)), team, () => {
@@ -394,24 +452,35 @@ export class BuildSystem {
       } else if (at) {
         const pl = c.placement;
         const kind: StructureKind = pl?.merge ?? (def.kind === 'outpost' ? 'generator' : def.kind === 'siegeDrop' ? 'beacon' : def.kind as StructureKind);
-        const key = `${kind}:${def.kind}`;
+        const pf = def.kind === 'prefab' ? this.prefab : null;
+        const key = pf ? `prefab:${pf.id}` : `${kind}:${def.kind}`;
         if (key !== this.previewKey) {
           if (this.preview) g.scene.remove(this.preview);
           this.preview = new THREE.Group();
-          for (const part of blueprint(kind, h.team)) {
-            if (part.glow !== undefined) continue;
-            const geo = part.geo === 'cyl' ? new THREE.CylinderGeometry(part.size[0] / 2, part.size[2] / 2, part.size[1], 12) : part.geo === 'sphere' ? new THREE.SphereGeometry(part.size[0] / 2, 12, 8) : new THREE.BoxGeometry(...part.size);
-            const m = new THREE.Mesh(geo, this.ghost.material);
-            m.position.set(...part.at);
-            this.preview.add(m);
+          const addParts = (k: StructureKind, parent: THREE.Object3D) => {
+            for (const part of blueprint(k, h.team)) {
+              if (part.glow !== undefined) continue;
+              const geo = part.geo === 'cyl' ? new THREE.CylinderGeometry(part.size[0] / 2, part.size[2] / 2, part.size[1], 12) : part.geo === 'sphere' ? new THREE.SphereGeometry(part.size[0] / 2, 12, 8) : new THREE.BoxGeometry(...part.size);
+              const m = new THREE.Mesh(geo, this.ghost.material);
+              m.position.set(...part.at);
+              parent.add(m);
+            }
+          };
+          if (pf) for (const q of pf.pieces) {
+            const sub = new THREE.Group();
+            sub.position.set(q.at[0], q.at[1], q.at[2]);
+            sub.rotation.set(((q.tilt ?? 0) * Math.PI) / 180, (q.yaw * Math.PI) / 180, 0, 'YXZ');
+            addParts(q.kind, sub);
+            this.preview.add(sub);
           }
+          else addParts(kind, this.preview);
           g.scene.add(this.preview);
           this.previewKey = key;
         }
         const pv = this.preview!;
         pv.visible = true;
         pv.position.copy(c.at);
-        pv.quaternion.setFromEuler(new THREE.Euler(pl?.tilt ?? 0, c.yaw, 0, 'YXZ'));
+        pv.quaternion.setFromEuler(new THREE.Euler(pf ? 0 : pl?.tilt ?? 0, c.yaw, 0, 'YXZ'));
         const mat = this.ghost.material as THREE.MeshBasicMaterial;
         mat.color.set(!c.ok ? 0xff5a5a : pl?.merge ? 0xffd27a : pl?.snapped ? 0x7dd8ff : 0x7dffb2);
       }

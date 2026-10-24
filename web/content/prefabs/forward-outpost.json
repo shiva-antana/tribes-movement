@@ -1,0 +1,13 @@
+{
+  "id": "forward-outpost",
+  "name": "Forward Outpost",
+  "description": "Walled pocket with a remote inventory station and a battery: change loadouts at the front.",
+  "pieces": [
+    { "kind": "inventory", "at": [0, 0, 0], "yaw": 0 },
+    { "kind": "battery", "at": [0, 0, -9], "yaw": 0 },
+    { "kind": "wall", "at": [-9, 0, -2], "yaw": 90 },
+    { "kind": "wall", "at": [9, 0, -2], "yaw": 90 },
+    { "kind": "post", "at": [-9, 0, -9], "yaw": 0 },
+    { "kind": "post", "at": [9, 0, -9], "yaw": 0 }
+  ]
+}

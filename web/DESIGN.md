@@ -64,6 +64,8 @@ agent-driven generation pipeline. Players add and vote on levels. See
 5. Build an uplink and call a crewed **siege drop**.
 
 Bots crew idle siege tanks, drive them toward the enemy, and shell structures on a ballistic arc. |
+| Prefabs & build budget | **Prefab** call-down (`=`): drop a whole fortification layout as one unit. **P** cycles layouts; **K** saves your structures around the aim point as a new layout (kept in local storage). Content prefabs live in `content/prefabs/*.json` (Watchpost, Forward Outpost) and are checked by `npm run validate`. Each team may have at most **80** deployables alive (`BUILD_LIMIT`), which keeps performance and the battlefield readable. |
+| Fast startup | Characters are meshed and baked in a **Web Worker pool**: a match starts in ~170 ms (was ~3.6 s), placeholder figures swap to full characters within ~1.7 s, and a second match is instant (cached). |
 | Character choice | The loadout's **Body** option lets any armor wear any generated character (e.g. the anime *Ranger*). |
 | Characters & animation | Generated, skinned, high-poly characters (scout / assault / juggernaut) built from data, wearing layered PBR materials and animated by generated motions (idle, run, ski, jet, fall) chosen from physics state. See [docs/CHARACTER_TOOLCHAIN.md](docs/CHARACTER_TOOLCHAIN.md). |
 

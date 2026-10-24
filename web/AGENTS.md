@@ -50,6 +50,12 @@ See [docs/SELF_IMPROVING_GRAPHICS.md](docs/SELF_IMPROVING_GRAPHICS.md).
 - `web/reference/` is **local-only and gitignored**. Never copy original Tribes data (or keyframes derived from it)
   into `content/`, the build, or commits. Use `--adopt` only for high-level fitted parameters, and only after a human decides.
 
+## Prefabs
+
+Fortification layouts are data in `content/prefabs/*.json`: pieces with `kind`, `at` (local meters: x right, z forward
+with -z = facing direction, y above ground), `yaw` and optional `tilt` in degrees. Keep them inside `BUILD_LIMIT`
+and validate with `npm run validate`.
+
 ## Levels' expected pace
 
 `expect.flagGrabsPer5Min` in a level sets the playtest's flag-pressure gate (default 0.9).

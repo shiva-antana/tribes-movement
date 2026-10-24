@@ -126,7 +126,7 @@ export type StructureKind =
   | 'battery' | 'flakTower' | 'post';
 
 export interface CalldownDef {
-  kind: StructureKind | 'outpost' | 'siegeDrop' | 'gunshipDrop' | 'road';
+  kind: StructureKind | 'outpost' | 'siegeDrop' | 'gunshipDrop' | 'road' | 'prefab';
   name: string;
   cost: number;
   desc: string;
@@ -147,11 +147,21 @@ export const CALLDOWNS: CalldownDef[] = [
   { kind: 'outpost', name: 'Outpost Drop', cost: 220, key: '8', desc: 'Generator + inventory + turret. A remote base.' },
   { kind: 'uplink', name: 'Command Uplink', cost: 250, key: '9', desc: 'Unlocks capital call-downs for your tribe.' },
   { kind: 'siegeDrop', name: 'Siege Tank Drop', cost: 300, key: '0', desc: 'Needs uplink + 2 tribemates at beacon.', requires: 'uplink', crew: 2 },
+  { kind: 'prefab', name: 'Prefab', cost: 0, key: '=', desc: 'Drop a saved fortification layout as one unit (P cycles layouts; K saves the structures around your aim as a new layout). Cost = sum of its pieces −10%.' },
   { kind: 'road', name: 'Grade Road', cost: 15, key: '-', desc: 'Click start, then end (≤220m). Permanently cuts/fills a 12m highway; fills shallow water into causeways. Tanks run 60% faster on roads. Cost scales with earth moved.' },
 ];
 
 /** Materiel per m³ of earth moved when grading roads. */
 export const ROAD_COST_PER_M3 = 0.006;
+
+/** Max deployable structures alive per team: a complexity budget (performance and readability). */
+export const BUILD_LIMIT = 80;
+
+/** Materiel value of each structure kind (merged kinds = the parts that made them). Used for prefab pricing. */
+export const STRUCTURE_COST: Partial<Record<StructureKind, number>> = {
+  wall: 15, turret: 60, aaTurret: 80, inventory: 70, extractor: 50, bridge: 120, skyPlatform: 150, uplink: 250,
+  battery: 75, flakTower: 95, post: 0, generator: 100, sensor: 30,
+};
 
 export const STRUCTURE_HP: Record<StructureKind, number> = {
   // Piecewise structures (bunker, wall, bridge, sky platform, flag stand) sum their panels' hp instead.

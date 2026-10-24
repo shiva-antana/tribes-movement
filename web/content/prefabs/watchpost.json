@@ -1,0 +1,15 @@
+{
+  "id": "watchpost",
+  "name": "Watchpost",
+  "description": "Three-sided wall with corner posts, a battery facing out and an AA battery behind. Drop it on a deposit or a choke.",
+  "pieces": [
+    { "kind": "battery", "at": [0, 0, -8], "yaw": 0 },
+    { "kind": "wall", "at": [-14, 0, -8], "yaw": 0 },
+    { "kind": "post", "at": [-21, 0, -8], "yaw": 0 },
+    { "kind": "wall", "at": [-21, 0, -1], "yaw": 90 },
+    { "kind": "wall", "at": [14, 0, -8], "yaw": 0 },
+    { "kind": "post", "at": [21, 0, -8], "yaw": 0 },
+    { "kind": "wall", "at": [21, 0, -1], "yaw": 90 },
+    { "kind": "aaTurret", "at": [0, 0, 6], "yaw": 0 }
+  ]
+}
