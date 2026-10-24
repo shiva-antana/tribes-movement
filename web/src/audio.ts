@@ -103,6 +103,14 @@ export class Audio {
   explosion(at: THREE.Vector3, size = 1) { this.burst(0.9 * size, 900, 'lowpass', 0.9 * Math.min(1.5, size), at, 0.08); this.tone(0.6, 90, 30, 'sine', 0.5 * size, at); }
   bounce(at: THREE.Vector3) { this.tone(0.05, 500, 300, 'square', 0.06, at); }
   hit() { this.tone(0.06, 1800, 1500, 'sine', 0.12); }
+  /** Bright metallic ding for head hits. */
+  headshot() { this.tone(0.12, 3200, 2600, 'triangle', 0.16); this.tone(0.2, 4800, 4400, 'sine', 0.06); }
+  /** Kill confirm: a two-note chime that climbs with the multi-kill count. */
+  kill(multi = 1) {
+    const base = 880 * Math.pow(1.122, Math.min(4, multi) - 1);
+    this.tone(0.09, base, base, 'triangle', 0.18);
+    setTimeout(() => this.tone(0.16, base * 1.5, base * 1.5, 'triangle', 0.16), 70);
+  }
   incoming(at: THREE.Vector3) { this.tone(2.2, 2400, 200, 'sine', 0.15, at); }
   beam() { this.tone(0.8, 200, 2400, 'sine', 0.2); }
   click() { this.tone(0.05, 900, 900, 'square', 0.05); }

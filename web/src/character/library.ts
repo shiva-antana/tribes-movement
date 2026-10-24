@@ -56,7 +56,9 @@ export class CharacterLibrary {
   private base(id: string) {
     let b = this.built.get(id);
     if (!b) {
-      const def = { ...CHARACTERS[id], voxel: Math.max(CHARACTERS[id].voxel ?? 0, this.voxel) };
+      // Game LOD: soldiers at coarse voxels; sculpted heroes a bit finer so faces keep their features.
+      const src = CHARACTERS[id];
+      const def = { ...src, voxel: src.style === 'toon' ? (src.voxel ?? 0.012) * 1.4 : Math.max(src.voxel ?? 0, this.voxel) };
       const sk = SKELETONS[def.skeleton];
       const res = buildCharacter(def, sk, {});
       const clips = Object.values(MOTIONS).filter(m => m.skeleton === def.skeleton).map(m => toClip(m, res.skeleton));

@@ -92,13 +92,36 @@ export class Hud {
     ctx.putImageData(img, 0, 0);
   }
 
-  flashDamage(amount: number) {
+  flashDamage(amount: number, fromAngle?: number) {
     this.vignette.style.opacity = String(Math.min(0.8, amount / 40));
     setTimeout(() => (this.vignette.style.opacity = '0'), 120);
+    if (fromAngle !== undefined) {
+      // Arc around the crosshair pointing at the attacker.
+      const arc = el('div', 'dmgdir', this.root);
+      arc.style.transform = `rotate(${fromAngle}rad)`;
+      arc.style.opacity = String(Math.min(1, 0.4 + amount / 30));
+      requestAnimationFrame(() => { arc.style.transition = 'opacity 1.2s'; arc.style.opacity = '0'; });
+      setTimeout(() => arc.remove(), 1300);
+    }
   }
-  flashHit() {
+  flashHit(head = false) {
+    this.hitmark.classList.toggle('head', head);
     this.hitmark.style.opacity = '1';
-    setTimeout(() => (this.hitmark.style.opacity = '0'), 100);
+    setTimeout(() => (this.hitmark.style.opacity = '0'), head ? 180 : 100);
+  }
+  callout(text: string, color = '#ffd27a') {
+    const c = el('div', 'callout', this.root);
+    c.textContent = text;
+    c.style.color = color;
+    setTimeout(() => c.classList.add('out'), 1400);
+    setTimeout(() => c.remove(), 2000);
+  }
+  killConfirm(name: string, head: boolean) {
+    const k = el('div', 'killconf', this.root);
+    k.textContent = `${head ? '◎ ' : '✕ '}${name}`;
+    if (head) k.classList.add('head');
+    setTimeout(() => k.classList.add('out'), 1100);
+    setTimeout(() => k.remove(), 1600);
   }
 
   message(text: string, color = '#e0e6ec') {

@@ -24,6 +24,9 @@ export class Bot {
   private lastPos = new THREE.Vector3();
   private strafeDir = 1;
   private strafeTimer = 0;
+  /** Builder plan: steps run in order once the bot is near `at` (and materiel allows). */
+  private plan: { label: string; at: THREE.Vector3; run: () => string | 'wait' }[] = [];
+  private buildGoal: THREE.Vector3 | null = null;
 
   constructor(readonly p: Player, role: BotRole, private game: Game) {
     this.role = role;
@@ -33,7 +36,15 @@ export class Bot {
   update(dt: number) {
     const p = this.p, g = this.game, c = p.controls;
     if (!p.alive) return;
-    if (p.vehicle) { g.exitVehicle(p); }
+    if (p.vehicle) {
+      if (p.vehicle.kind === 'tank') { this.driveTank(dt); return; }
+      g.exitVehicle(p);
+    }
+    // Crew a friendly siege tank sitting idle nearby.
+    if (this.role !== 'offense' && !p.flag) {
+      const tank = g.vehicles.find(v => v.alive && v.kind === 'tank' && v.team === p.team && !v.driver && v.pos.distanceTo(p.pos) < 25);
+      if (tank) { g.enterVehicle(p, tank); return; }
+    }
 
     this.scanTimer -= dt;
     if (this.scanTimer <= 0) { this.scanTimer = 0.3; this.target = this.pickTarget(); }
@@ -213,6 +224,7 @@ export class Bot {
         break;
       }
       case 'builder': {
+        if (this.buildGoal) { this.goal.copy(this.buildGoal); break; }
         const vent = this.nearestFreeVent();
         if (vent) this.goal.copy(vent);
         else this.goal.set(home.x, home.y, home.z);
@@ -237,28 +249,125 @@ export class Bot {
   private tryBuild() {
     const g = this.game, p = this.p;
     if (p.loadout.pack !== 'constructor') return;
-    this.buildCooldown = 4;
+    this.buildCooldown = 3;
     const team = g.teams[p.team];
+    // 1) Work through the current plan (fortifications).
+    if (this.plan.length) {
+      const step = this.plan[0];
+      if (p.pos.distanceTo(step.at) > 70) { this.buildGoal = step.at; return; }
+      const r = step.run();
+      if (r === 'wait') return;                               // e.g. a drop pod hasn't landed yet
+      if (r === '' || !/materiel/.test(r)) this.plan.shift();  // done, or impossible → skip it
+      this.buildGoal = this.plan[0]?.at ?? null;
+      return;
+    }
+    this.buildGoal = null;
+    // 2) Tap the nearest free deposit, then plan its defences.
     const vent = this.nearestFreeVent();
     if (vent && vent.distanceTo(p.pos) < 14) {
       const def = CALLDOWNS.find(d => d.kind === 'extractor')!;
-      if (team.materiel >= def.cost + 20 && g.build.callDown(p, def, vent) === '') {
-        this.buildCooldown = 6;
-        // Guard it with a turret if we can afford it.
-        const tdef = CALLDOWNS.find(d => d.kind === 'turret')!;
-        const tAt = vent.clone().add(new THREE.Vector3(8, 0, 6));
-        tAt.y = g.terrain.heightAt(tAt.x, tAt.z);
-        if (team.materiel >= tdef.cost + 80) g.build.callDown(p, tdef, tAt);
-        return;
-      }
+      if (team.materiel >= def.cost + 20 && g.build.callDown(p, def, vent) === '') { this.planFortify(vent); return; }
     }
-    // Occasionally invest in an uplink and sky platform once the economy is going.
-    if (team.materiel > 450 && !g.structures.some(s => s.kind === 'uplink' && s.team === p.team && s.alive)) {
-      const home = g.terrain.bases[p.team];
+    // 3) Grade the team highway toward the richest tapped deposit.
+    if (team.materiel > 260 && this.roadStep()) return;
+    // 4) Strategic investments: uplink, then a crewed siege drop.
+    const home = g.terrain.bases[p.team];
+    const uplink = g.structures.some(s => s.kind === 'uplink' && s.team === p.team && s.alive);
+    if (team.materiel > 450 && !uplink) {
       const at = new THREE.Vector3(home.x + (p.team ? -1 : 1) * 70, 0, home.z + 40);
       at.y = g.terrain.heightAt(at.x, at.z);
-      g.build.callDown(p, CALLDOWNS.find(d => d.kind === 'uplink')!, at);
+      g.build.callDown(p, CALLDOWNS.find(d => d.kind === 'uplink')!, at, { free: true });
+    } else if (uplink && team.materiel > 420 && !g.structures.some(s => s.kind === 'beacon' && s.team === p.team && s.alive) && !g.vehicles.some(v => v.kind === 'tank' && v.team === p.team && v.alive)) {
+      const door = g.baseDoor(p.team);
+      const out = new THREE.Vector3(door.x - home.x, 0, door.z - home.z).normalize();
+      const at = door.clone().addScaledVector(out, 35);
+      at.y = g.terrain.heightAt(at.x, at.z);
+      if (p.pos.distanceTo(at) > 60) { this.buildGoal = at; return; }
+      g.build.callDown(p, CALLDOWNS.find(d => d.kind === 'siegeDrop')!, at, { free: true });
     }
+  }
+
+  /** Wall off a deposit toward the enemy: a front wall, a straight extension, a corner, and a battery on top. */
+  private planFortify(vent: THREE.Vector3) {
+    const g = this.game, p = this.p;
+    const enemy = g.terrain.bases[1 - p.team];
+    const dir = new THREE.Vector3(enemy.x - vent.x, 0, enemy.z - vent.z).normalize();
+    const yaw = Math.atan2(dir.x, dir.z);                       // wall normal (local +Z) faces the enemy
+    const across = new THREE.Vector3(Math.cos(yaw), 0, -Math.sin(yaw)); // wall local +X
+    const center = vent.clone().addScaledVector(dir, 10);
+    center.y = g.terrain.heightAt(center.x, center.z);
+    const wallAt = (pt: THREE.Vector3) => g.structures.find(s => s.alive && s.kind === 'wall' && s.team === p.team && s.pos.distanceTo(pt) < 2.5);
+    const def = (k: string) => CALLDOWNS.find(d => d.kind === k)!;
+    this.plan = [
+      { label: 'front wall', at: center, run: () => g.build.callDown(p, def('wall'), center, { yaw, free: true }) },
+      { label: 'extend wall', at: center, run: () => {
+        const w = wallAt(center); if (!w) return 'wait';
+        const end = center.clone().addScaledVector(across, 7);
+        return g.build.callDown(p, def('wall'), end.clone().addScaledVector(across, 0.5), { yaw });
+      } },
+      { label: 'corner wall', at: center, run: () => {
+        const w = wallAt(center); if (!w) return 'wait';
+        const end = center.clone().addScaledVector(across, -7);
+        return g.build.callDown(p, def('wall'), end.clone().addScaledVector(across, -0.5), { yaw: yaw + Math.PI / 2 });
+      } },
+      { label: 'battery', at: center, run: () => {
+        const w = wallAt(center); if (!w) return 'wait';
+        return g.build.callDown(p, def('turret'), w.pos.clone().add(new THREE.Vector3(0, 6.8, 0)));
+      } },
+    ];
+  }
+
+  /** Extend the team highway by one segment (≤200 m). Returns true if this bot is busy with it. */
+  private roadStep(): boolean {
+    const g = this.game, p = this.p, team = g.teams[p.team];
+    if (!team.road) {
+      // Target: the richest deposit this team has an extractor on.
+      let best: THREE.Vector3 | null = null, rich = 0;
+      for (const s of g.structures) {
+        if (s.kind !== 'extractor' || !s.alive || s.team !== p.team) continue;
+        const d = g.terrain.deposits[s.depositIndex];
+        if (d && d.richness > rich) { rich = d.richness; best = s.pos.clone(); }
+      }
+      if (!best || rich < 2) return false; // only worth a highway for a motherlode
+      team.road = { tip: g.baseDoor(p.team).clone(), target: best };
+    }
+    const r = team.road;
+    const left = Math.hypot(r.target.x - r.tip.x, r.target.z - r.tip.z);
+    if (left < 25) return false;
+    if (p.pos.distanceTo(r.tip) > 80) { this.buildGoal = r.tip.clone(); return true; }
+    const dir = new THREE.Vector3(r.target.x - r.tip.x, 0, r.target.z - r.tip.z).normalize();
+    const end = r.tip.clone().addScaledVector(dir, Math.min(200, left - 15));
+    const err = g.build.gradeRoad(p, r.tip, end);
+    if (err === '') { end.y = g.terrain.heightAt(end.x, end.z); r.tip = end; }
+    this.buildGoal = null;
+    return err === '';
+  }
+
+  /** Siege tank driver: roll toward the enemy and shell the nearest structure with a ballistic arc. */
+  private driveTank(dt: number) {
+    const g = this.game, p = this.p, c = p.controls, v = p.vehicle!;
+    void dt;
+    let target: THREE.Vector3 | null = null, td = Infinity;
+    for (const s of g.structures) {
+      if (!s.alive || s.team === p.team || !s.destructible) continue;
+      const d = s.pos.distanceTo(v.pos);
+      if (d < td) { td = d; target = s.center; }
+    }
+    const goal = target ?? new THREE.Vector3(g.terrain.bases[1 - p.team].x, 0, g.terrain.bases[1 - p.team].z);
+    const to = new THREE.Vector3(goal.x - v.pos.x, 0, goal.z - v.pos.z);
+    const dist = to.length();
+    const want = Math.atan2(-to.x, -to.z);
+    const rel = angleDiff(v.hullYaw, want);
+    c.strafe = -THREE.MathUtils.clamp(rel * 2, -1, 1);
+    c.forward = dist > 170 ? (Math.abs(rel) < 0.6 ? 1 : 0.3) : 0;
+    if (v.blockedByWater) { c.forward = -0.5; c.strafe = 1; }
+    // Ballistic aim: low arc for shell speed v0 under gravity, plus height difference.
+    const v0 = 85, gr = 20 * 0.6;
+    const s = THREE.MathUtils.clamp(gr * dist / (v0 * v0), -1, 1);
+    const dy = (target?.y ?? goal.y) - (v.pos.y + 2.6);
+    c.yaw = want;
+    c.pitch = 0.5 * Math.asin(s) + Math.atan2(dy, Math.max(1, dist)) * 0.9;
+    c.fire = !!target && dist < 280 && dist > 30;
   }
 
   private pickTarget(): Player | null {

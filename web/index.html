@@ -16,6 +16,12 @@
   .crosshair { position: absolute; left: 50%; top: 50%; width: 18px; height: 18px; margin: -9px; border: 1.5px solid rgba(220,240,255,0.75); border-radius: 50%; }
   .crosshair::after { content: ''; position: absolute; left: 50%; top: 50%; width: 3px; height: 3px; margin: -1.5px; background: #fff; border-radius: 50%; }
   .hitmark { position: absolute; left: 50%; top: 50%; width: 30px; height: 30px; margin: -15px; border: 2px solid #ff6a6a; transform: rotate(45deg); opacity: 0; transition: opacity .1s; }
+  .hitmark.head { border-color: #ff3030; width: 40px; height: 40px; margin: -20px; border-width: 3px; }
+  .dmgdir { position: absolute; left: 50%; top: 50%; width: 180px; height: 180px; margin: -90px; border-radius: 50%; border-top: 5px solid rgba(255,70,40,0.95); pointer-events: none; }
+  .callout { position: absolute; left: 50%; top: 30%; transform: translateX(-50%); font-size: 30px; font-weight: 800; letter-spacing: 6px; text-shadow: 0 2px 8px #000; transition: opacity .5s, transform .5s; }
+  .callout.out { opacity: 0; transform: translateX(-50%) translateY(-12px); }
+  .killconf { position: absolute; left: 50%; top: 56%; transform: translateX(-50%); font-size: 15px; font-weight: 700; color: #fff; text-shadow: 0 1px 3px #000; transition: opacity .4s; }
+  .killconf.head { color: #ff6a6a; } .killconf.out { opacity: 0; }
   .vignette { position: absolute; inset: 0; box-shadow: inset 0 0 160px 40px rgba(255,40,20,0.9); opacity: 0; transition: opacity .25s; }
   .status { left: 16px; bottom: 16px; width: 300px; }
   .bar-row { display: flex; align-items: center; gap: 8px; margin: 3px 0; }

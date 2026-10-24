@@ -29,8 +29,10 @@ interface Pickup { pos: THREE.Vector3; value: number; mesh: THREE.Mesh; life: nu
 /** The slice of the HUD the simulation talks to (headless runs use a no-op). */
 export interface HudLike {
   message(text: string, color?: string): void;
-  flashDamage(amount: number): void;
-  flashHit(): void;
+  flashDamage(amount: number, fromAngle?: number): void;
+  flashHit(head?: boolean): void;
+  callout(text: string, color?: string): void;
+  killConfirm(name: string, head: boolean): void;
   setBuildStatus(def: CalldownDef, c: PlacementCheck): void;
   update(dt: number): void;
   dispose(): void;
@@ -38,7 +40,7 @@ export interface HudLike {
 class NullHud implements HudLike {
   log: string[] = [];
   message(t: string) { this.log.push(t); if (this.log.length > 200) this.log.shift(); }
-  flashDamage() {} flashHit() {} setBuildStatus() {} update() {} dispose() {}
+  flashDamage() {} flashHit() {} callout() {} killConfirm() {} setBuildStatus() {} update() {} dispose() {}
 }
 
 /** Counters for headless playtests and balance dashboards. */
@@ -49,7 +51,11 @@ export interface MatchStats {
 }
 
 export interface GameOptions { headless?: boolean; }
-export interface TeamState { score: number; materiel: number; }
+export interface TeamState {
+  score: number; materiel: number;
+  /** Highway the team's builders are grading from base toward their richest extractor. */
+  road?: { tip: THREE.Vector3; target: THREE.Vector3 };
+}
 
 export class Game {
   readonly scene = new THREE.Scene();
@@ -283,12 +289,23 @@ export class Game {
     }
     p.health -= amount;
     if (attacker && attacker !== p) { p.lastAttacker = attacker; p.lastHitTime = this.time; }
-    if (p === this.human) this.hud.flashDamage(amount);
-    if (attacker === this.human && p !== this.human) { this.hud.flashHit(); this.audio.hit(); }
+    const head = cause.endsWith('(head)');
+    if (p === this.human) {
+      // Direction of the hit relative to where we're looking (0 = ahead, + = to the right).
+      let ang: number | undefined;
+      if (attacker && attacker !== p) {
+        const d = attacker.pos.clone().sub(p.pos);
+        const yaw = p.controls.yaw;
+        ang = Math.atan2(d.x * Math.cos(yaw) - d.z * Math.sin(yaw), -(d.x * Math.sin(yaw) + d.z * Math.cos(yaw)));
+      }
+      this.hud.flashDamage(amount, ang);
+    }
+    if (attacker === this.human && p !== this.human) { this.hud.flashHit(head); if (head) this.audio.headshot(); else this.audio.hit(); }
     if (p.health <= 0) this.killPlayer(p, attacker && attacker !== p ? attacker : (this.time - p.lastHitTime < 5 ? p.lastAttacker : null), cause);
   }
 
   killPlayer(p: Player, killer: Player | null, cause: string) {
+    const wasCarrier = !!p.flag;
     p.alive = false;
     p.health = 0;
     p.deaths++;
@@ -299,10 +316,28 @@ export class Game {
     this.fx.explosion(p.center, 3, 0xff8060);
     this.spawnPickup(p.pos.clone().add(new THREE.Vector3(0, 1, 0)), KILL_SPOILS);
     this.stats.deathsByCause[cause] = (this.stats.deathsByCause[cause] ?? 0) + 1;
+    const ended = p.streak;
+    p.streak = 0; p.multi = 0;
     if (killer && killer.team !== p.team) {
       this.stats.kills++;
       killer.kills++;
-      this.message(`${killer.name} ⟶ ${p.name}`, killer.team === this.human.team ? '#9fe8ff' : '#ff9a7a');
+      killer.streak++;
+      killer.multi = this.time - killer.lastKillTime < 4 ? killer.multi + 1 : 1;
+      killer.lastKillTime = this.time;
+      const head = cause.endsWith('(head)');
+      this.message(`${killer.name} ⟶ ${p.name}${head ? ' ◎' : ''}`, killer.team === this.human.team ? '#9fe8ff' : '#ff9a7a');
+      const multi = ['', '', 'DOUBLE KILL', 'TRIPLE KILL', 'QUAD KILL'][Math.min(4, killer.multi)];
+      const spree = killer.streak === 5 ? 'KILLING SPREE' : killer.streak === 10 ? 'RAMPAGE' : killer.streak === 15 ? 'UNSTOPPABLE' : '';
+      if (killer === this.human) {
+        this.hud.killConfirm(p.name, head);
+        this.audio.kill(killer.multi);
+        if (multi) this.hud.callout(multi, '#ffd27a');
+        else if (spree) this.hud.callout(spree, '#ff9a40');
+        else if (wasCarrier) this.hud.callout('FLAG CARRIER DOWN', '#9fe8ff');
+        else if (ended >= 5) this.hud.callout('SPREE ENDED', '#c8f0ff');
+      }
+      if (spree && killer !== this.human) this.message(`${killer.name} is on a ${spree.toLowerCase()}!`, '#ffb070');
+      if (ended >= 5) this.message(`${killer.name} ended ${p.name}'s ${ended}-kill streak`, '#ffd27a');
     } else this.message(`${p.name} died (${cause})`, '#a0a8b0');
     if (p === this.human) { this.deathCam.copy(p.pos); this.build.active = false; }
   }

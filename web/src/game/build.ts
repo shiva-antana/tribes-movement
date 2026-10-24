@@ -30,6 +30,9 @@ export interface Placement {
   snapped: boolean;
 }
 
+/** Placement intent for a caller. The human's comes from the build UI; bots pass their own. */
+export interface Pose { yaw?: number; rotation?: number; tilt?: number; free?: boolean; }
+
 export type Socket = { p: THREE.Vector3; type: 'end' | 'top' | 'bridgeEnd'; dir: THREE.Vector3 };
 
 const WALL_LEN = 14, WALL_H = 7;
@@ -93,12 +96,17 @@ export class BuildSystem {
   defAt(i: number): CalldownDef { return CALLDOWNS[i]; }
 
   /** Rotation, snapping and Tiny Glade-style merge rules. */
-  resolve(p: Player, def: CalldownDef, aim: THREE.Vector3): Placement {
+  resolve(p: Player, def: CalldownDef, aim: THREE.Vector3, pose?: Pose): Placement {
     const g = this.game;
-    const userYaw = Math.round((p.controls.yaw + this.rotation) / STEP) * STEP;
-    const tilt = def.kind === 'wall' ? TILTS[this.tiltIndex % TILTS.length] : 0;
-    const free: Placement = { at: aim.clone(), yaw: userYaw, tilt, note: this.freePlace ? 'Free placement' : 'Free placement (no snap target)', snapped: false };
-    if (this.freePlace) return free;
+    // The human's build UI state applies only to the human; bots supply their own pose.
+    const ui = p === g.human && !pose;
+    const rotation = ui ? this.rotation : pose?.rotation ?? 0;
+    const tiltIdx = ui ? this.tiltIndex : pose?.tilt ?? 0;
+    const freePlace = ui ? this.freePlace : !!pose?.free;
+    const userYaw = pose?.yaw ?? Math.round((p.controls.yaw + rotation) / STEP) * STEP;
+    const tilt = def.kind === 'wall' ? TILTS[tiltIdx % TILTS.length] : 0;
+    const free: Placement = { at: aim.clone(), yaw: userYaw, tilt, note: freePlace ? 'Free placement' : 'Free placement (no snap target)', snapped: false };
+    if (freePlace) return free;
     const near = g.structures.filter(s => s.alive && s.team === p.team && s.pos.distanceTo(aim) < 30);
     const all = near.flatMap(s => sockets(s).map(k => ({ s, k })));
     const nearest = (type: Socket['type'], maxD: number) => {
@@ -145,7 +153,7 @@ export class BuildSystem {
       const be = nearest('bridgeEnd', 14);
       if (be) return { at: be.k.p.clone(), yaw: be.s.yaw, tilt: 0, note: 'Snap: extend bridge', host: be.s, snapped: true };
     }
-    if ((def.kind === 'turret' || def.kind === 'aaTurret' || def.kind === 'inventory') && !this.freePlace) {
+    if (def.kind === 'turret' || def.kind === 'aaTurret' || def.kind === 'inventory') {
       // Align with a nearby wall's facing so defenses read as part of the fortification.
       const end = nearest('end', 10);
       if (end) return { ...free, yaw: end.s.yaw, note: 'Aligned to wall' };
@@ -153,10 +161,10 @@ export class BuildSystem {
     return free;
   }
 
-  check(p: Player, def: CalldownDef, aimAt: THREE.Vector3 | null): PlacementCheck {
+  check(p: Player, def: CalldownDef, aimAt: THREE.Vector3 | null, pose?: Pose): PlacementCheck {
     const g = this.game;
     if (!aimAt) return { ok: false, reason: 'No surface in range', at: p.pos.clone(), yaw: p.controls.yaw };
-    const pl = def.kind === 'road' || def.kind === 'extractor' ? null : this.resolve(p, def, aimAt);
+    const pl = def.kind === 'road' || def.kind === 'extractor' ? null : this.resolve(p, def, aimAt, pose);
     const at = pl ? pl.at : aimAt;
     const yaw = pl ? pl.yaw : p.controls.yaw;
     const res = (ok: boolean, reason: string): PlacementCheck => ({ ok, reason: ok && pl ? pl.note : reason, at, yaw, placement: pl ?? undefined });
@@ -193,9 +201,27 @@ export class BuildSystem {
     return { ok: true, reason: `${Math.round(len)}m road · ${Math.round(volume)} m³ · ${cost} materiel`, at, yaw, cost };
   }
 
+  /** One-call road for bots/scripts (no two-click UI state). Returns error string or ''. */
+  gradeRoad(p: Player, a: THREE.Vector3, b: THREE.Vector3): string {
+    const g = this.game;
+    const len = Math.hypot(b.x - a.x, b.z - a.z);
+    if (len < 10 || len > ROAD_MAX) return `road length ${Math.round(len)}m out of range`;
+    const { volume } = g.terrain.gradeRoad(a, b, ROAD_WIDTH, false);
+    const cost = Math.round(15 + volume * ROAD_COST_PER_M3);
+    if (g.teams[p.team].materiel < cost) return `need ${cost} materiel`;
+    g.teams[p.team].materiel -= cost;
+    const moved = g.terrain.gradeRoad(a, b, ROAD_WIDTH, true);
+    g.stats.roadsGraded++;
+    g.stats.earthMoved += moved.volume;
+    for (let t = 0; t <= 1; t += 0.2) { const q = a.clone().lerp(b, t); q.y = g.terrain.heightAt(q.x, q.z) + 1; g.fx.explosion(q, 5, 0xb09070); }
+    g.message(`${p.name} graded ${Math.round(len)}m of road (${cost} materiel)`, p.team === g.human.team ? '#ffd27a' : '#ffb08a');
+    for (const pl of g.players) if (pl.alive && !pl.vehicle) pl.pos.y = Math.max(pl.pos.y, g.terrain.groundAt(pl.pos.x, pl.pos.z).y);
+    return '';
+  }
+
   /** Attempt a call-down. Returns error string or '' on success. */
-  callDown(p: Player, def: CalldownDef, at: THREE.Vector3 | null): string {
-    const c = this.check(p, def, at);
+  callDown(p: Player, def: CalldownDef, at: THREE.Vector3 | null, pose?: Pose): string {
+    const c = this.check(p, def, at, pose);
     if (!c.ok) return c.reason;
     const g = this.game;
     if (def.kind === 'road') {

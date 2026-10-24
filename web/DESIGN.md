@@ -55,6 +55,16 @@ agent-driven generation pipeline. Players add and vote on levels. See
 
 | Building: snapping & merges | Mouse wheel rotates pieces in 15° steps; **R** tilts walls into ramps (45°) and floor slabs (90°); hold **Alt** to place freely. Pieces **snap** via sockets: walls continue end-to-end or turn right-angle corners (a post is added at the junction), stack on top of each other, and floor slabs pivot onto wall tops to roof a room. Bridges extend from bridge ends. **Tiny Glade-style merges:** a turret dropped onto a wall top turns that wall into a **Wall Battery** (battlements, integrated gun, +height, +range), and an AA battery becomes a **Flak Tower**. The ghost preview shows the real piece in green (free), blue (snapped) or gold (merge). Colliders support full rotation (ramps are walkable). |
 | Weapon realism | Projectiles feel **air drag relative to the wind**, so grenades and mortars drift in katabatic gales; chaingun rounds **drop** and lose damage with range. Weapons have **magazines and reloads** (R). The chaingun **spins up** and its spread **blooms** under sustained fire. Spread grows with your own speed and when airborne, and the crosshair shows the real cone. Weapons have **recoil** (camera and view-model kick), **muzzle flashes**, **headshot** multipliers for bullets, and **cover**: walls and ridges absorb 75% of splash damage. Sound arrives at the speed of sound, so you see a far explosion before you hear it. |
+| Combat feedback | Distinct hit and **headshot** markers and sounds, a **kill-confirm** chime that climbs with multi-kills, center-screen callouts (Double/Triple/Quad kill, Killing spree, Rampage, Flag carrier down, Spree ended), and a red arc around the crosshair showing which direction damage came from. |
+| Strategic bots | Builders work through a plan:
+1. Tap a deposit.
+2. Wall it off toward the enemy with **snapped** walls and corner posts.
+3. Drop a turret onto the wall, which **merges into a battery**.
+4. Grade a **highway** segment by segment from base toward a tapped motherlode.
+5. Build an uplink and call a crewed **siege drop**.
+
+Bots crew idle siege tanks, drive them toward the enemy, and shell structures on a ballistic arc. |
+| Character choice | The loadout's **Body** option lets any armor wear any generated character (e.g. the anime *Ranger*). |
 | Characters & animation | Generated, skinned, high-poly characters (scout / assault / juggernaut) built from data, wearing layered PBR materials and animated by generated motions (idle, run, ski, jet, fall) chosen from physics state. See [docs/CHARACTER_TOOLCHAIN.md](docs/CHARACTER_TOOLCHAIN.md). |
 
 ## Architecture

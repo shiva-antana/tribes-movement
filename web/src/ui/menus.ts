@@ -3,6 +3,7 @@ import { BIOMES, BiomeId } from '../world/biomes';
 import type { Loadout } from '../game/player';
 
 import type { LevelDef } from '../content/level';
+import { CHARACTERS } from '../content/assets';
 
 export interface MatchSetup { biome: BiomeId; seed: number; teamSize: number; level?: LevelDef; }
 
@@ -64,7 +65,7 @@ export function showMainMenu(onStart: (s: MatchSetup) => void, levels: LevelDef[
 
 export function showLoadoutMenu(current: Loadout, onApply: (l: Loadout) => void, onClose: () => void) {
   const o = overlay('loadout');
-  const l: Loadout = { armor: current.armor, weapons: [...current.weapons], pack: current.pack };
+  const l: Loadout = { armor: current.armor, weapons: [...current.weapons], pack: current.pack, body: current.body };
   const render = () => {
     const a = ARMORS[l.armor];
     l.weapons = l.weapons.filter(w => a.allowed.includes(w)).slice(0, a.weaponSlots);
@@ -76,6 +77,9 @@ export function showLoadoutMenu(current: Loadout, onApply: (l: Loadout) => void,
           const d = ARMORS[id];
           return `<div class="opt ${id === l.armor ? 'sel' : ''}" data-a="${id}"><b>${d.name}</b><span>${d.health} hp · ${d.weaponSlots} weapons · run ${d.runSpeed} m/s · jet ${d.jetAccel}</span></div>`;
         }).join('')}</div>
+        <div class="section">BODY</div>
+        <div class="opts">${[['', 'Armor default', 'The standard trooper for this armor class'], ...Object.values(CHARACTERS).map(c => [c.id, c.name ?? c.id, c.description ?? ''])].map(([id, name, desc]) =>
+          `<div class="opt ${(l.body ?? '') === id ? 'sel' : ''}" data-b="${id}"><b>${name}</b><span>${desc.slice(0, 70)}</span></div>`).join('')}</div>
         <div class="section">WEAPONS (${l.weapons.length}/${a.weaponSlots})</div>
         <div class="opts">${(Object.keys(WEAPONS) as WeaponId[]).map(id => {
           const ok = a.allowed.includes(id);
@@ -93,6 +97,7 @@ export function showLoadoutMenu(current: Loadout, onApply: (l: Loadout) => void,
       else if (l.weapons.length < ARMORS[l.armor].weaponSlots) l.weapons.push(w);
       render();
     });
+    o.querySelectorAll<HTMLElement>('[data-b]').forEach(e => e.onclick = () => { l.body = e.dataset.b || undefined; render(); });
     o.querySelectorAll<HTMLElement>('[data-p]').forEach(e => e.onclick = () => { l.pack = e.dataset.p as PackId; render(); });
     (o.querySelector('#apply') as HTMLButtonElement).onclick = () => { o.remove(); onApply(l); };
     (o.querySelector('#close') as HTMLButtonElement).onclick = () => { o.remove(); onClose(); };

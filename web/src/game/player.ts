@@ -28,7 +28,8 @@ export const emptyControls = (): Controls => ({
   repair: false, yaw: 0, pitch: 0, weapon: -1, descend: false, reloadPressed: false,
 });
 
-export interface Loadout { armor: ArmorId; weapons: WeaponId[]; pack: PackId; }
+/** `body`: which generated character to wear (content/characters id); defaults to the armor's soldier. */
+export interface Loadout { armor: ArmorId; weapons: WeaponId[]; pack: PackId; body?: string; }
 
 const tmpN = new THREE.Vector3();
 const tmpV = new THREE.Vector3();
@@ -63,6 +64,9 @@ export class Player {
   flag: Flag | null = null;
   vehicle: Vehicle | null = null;
   kills = 0; deaths = 0; caps = 0;
+  streak = 0;            // kills since last death
+  multi = 0;             // kills in the current multi-kill window
+  lastKillTime = -100;
   lastAttacker: Player | null = null;
   lastHitTime = -100;
   stationCooldown = 0;
@@ -100,7 +104,7 @@ export class Player {
     const lib = this.game.characters;
     if (lib) {
       // Generated, skinned character (content/characters) scaled to the armor's height.
-      this.character = lib.create(ARMOR_CHARACTER[a.id], col);
+      this.character = lib.create(this.loadout.body ?? ARMOR_CHARACTER[a.id], col);
       this.character.mesh.scale.setScalar(a.height / 1.86);
       this.flame = new THREE.Mesh(new THREE.ConeGeometry(0.16 * s, 1.2 * s, 8), makeGlowMaterial(0x9fd8ff, 0.85));
       this.flame.rotation.x = Math.PI;
@@ -125,8 +129,8 @@ export class Player {
   }
 
   applyLoadout(l: Loadout) {
-    const armorChanged = l.armor !== this.armor.id;
-    this.loadout = { armor: l.armor, weapons: l.weapons.filter(w => ARMORS[l.armor].allowed.includes(w)).slice(0, ARMORS[l.armor].weaponSlots), pack: l.pack };
+    const armorChanged = l.armor !== this.armor.id || l.body !== this.loadout.body;
+    this.loadout = { armor: l.armor, weapons: l.weapons.filter(w => ARMORS[l.armor].allowed.includes(w)).slice(0, ARMORS[l.armor].weaponSlots), pack: l.pack, body: l.body };
     if (this.loadout.weapons.length === 0) this.loadout.weapons = ['spinfusor'];
     this.armor = ARMORS[l.armor];
     if (armorChanged) this.buildMesh();
